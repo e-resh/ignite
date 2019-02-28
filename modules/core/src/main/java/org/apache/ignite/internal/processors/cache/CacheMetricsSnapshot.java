@@ -23,6 +23,7 @@ import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.util.Collection;
 import org.apache.ignite.cache.CacheMetrics;
+import org.apache.ignite.internal.marshaller.optimized.OptimizedObjectOutputStream;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
@@ -357,9 +358,9 @@ public class CacheMetricsSnapshot implements CacheMetrics, Externalizable {
 
         offHeapAllocatedSize = m.getOffHeapAllocatedSize();
 
-        size = entriesStat.size();
         cacheSize = entriesStat.cacheSize();
         keySize = entriesStat.keySize();
+        size = entriesStat.size();
         isEmpty = entriesStat.isEmpty();
 
         dhtEvictQueueCurrSize = m.getDhtEvictQueueCurrentSize();
@@ -1075,23 +1076,25 @@ public class CacheMetricsSnapshot implements CacheMetrics, Externalizable {
         out.writeLong(rebalancingBytesRate);
         out.writeLong(rebalancingKeysRate);
 
-        out.writeLong(rebalancedKeys);
-        out.writeLong(estimatedRebalancingKeys);
-        out.writeLong(rebalanceStartTime);
-        out.writeLong(rebalanceFinishTime);
-        out.writeLong(rebalanceClearingPartitionsLeft);
+        if (!(out instanceof OptimizedObjectOutputStream)) {
+            out.writeLong(rebalancedKeys);
+            out.writeLong(estimatedRebalancingKeys);
+            out.writeLong(rebalanceStartTime);
+            out.writeLong(rebalanceFinishTime);
+            out.writeLong(rebalanceClearingPartitionsLeft);
 
-        out.writeLong(entryProcessorPuts);
-        out.writeFloat(entryProcessorAverageInvocationTime);
-        out.writeLong(entryProcessorInvocations);
-        out.writeFloat(entryProcessorMaxInvocationTime);
-        out.writeFloat(entryProcessorMinInvocationTime);
-        out.writeLong(entryProcessorReadOnlyInvocations);
-        out.writeFloat(entryProcessorHitPercentage);
-        out.writeLong(entryProcessorHits);
-        out.writeLong(entryProcessorMisses);
-        out.writeFloat(entryProcessorMissPercentage);
-        out.writeLong(entryProcessorRemovals);
+            out.writeLong(entryProcessorPuts);
+            out.writeFloat(entryProcessorAverageInvocationTime);
+            out.writeLong(entryProcessorInvocations);
+            out.writeFloat(entryProcessorMaxInvocationTime);
+            out.writeFloat(entryProcessorMinInvocationTime);
+            out.writeLong(entryProcessorReadOnlyInvocations);
+            out.writeFloat(entryProcessorHitPercentage);
+            out.writeLong(entryProcessorHits);
+            out.writeLong(entryProcessorMisses);
+            out.writeFloat(entryProcessorMissPercentage);
+            out.writeLong(entryProcessorRemovals);
+        }
     }
 
     /** {@inheritDoc} */
