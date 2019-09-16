@@ -4141,74 +4141,80 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
             List<FullPageId> pagesToRetry = new ArrayList<>();
 
-            for (FullPageId fullId : writePageIds) {
-                if (checkpointer.shutdownNow)
-                    break;
+            PageMemoryEx pageMem = null;
 
-                tmpWriteBuf.rewind();
-
-                beforePageWrite.run();
-
-                snapshotMgr.beforePageWrite(fullId);
-
-                int grpId = fullId.groupId();
-
-                PageMemoryEx pageMem;
-
-                // TODO IGNITE-7792 add generic mapping.
-                if (grpId == MetaStorage.METASTORAGE_CACHE_ID)
-                    pageMem = (PageMemoryEx)metaStorage.pageMemory();
-                else if (grpId == TxLog.TX_LOG_CACHE_ID)
-                    pageMem = (PageMemoryEx)dataRegion(TxLog.TX_LOG_CACHE_NAME).pageMemory();
-                else {
-                    CacheGroupContext grp = context().cache().cacheGroup(grpId);
-
-                    DataRegion region = grp != null ?grp .dataRegion() : null;
-
-                    if (region == null || !region.config().isPersistenceEnabled())
-                        continue;
-
-                    pageMem = (PageMemoryEx)region.pageMemory();
-                }
-
-                Integer tag = pageMem.getForCheckpoint(
-                    fullId, tmpWriteBuf, persStoreMetrics.metricsEnabled() ? tracker : null);
-
-                if (tag != null) {
-                    if (tag == PageMemoryImpl.TRY_AGAIN_TAG) {
-                        pagesToRetry.add(fullId);
-
-                        continue;
-                    }
-
-                    assert PageIO.getType(tmpWriteBuf) != 0 : "Invalid state. Type is 0! pageId = " + U.hexLong(fullId.pageId());
-                    assert PageIO.getVersion(tmpWriteBuf) != 0 : "Invalid state. Version is 0! pageId = " + U.hexLong(fullId.pageId());
+            try {
+                for (FullPageId fullId : writePageIds) {
+                    if (checkpointer.shutdownNow)
+                        break;
 
                     tmpWriteBuf.rewind();
 
-                    if (persStoreMetrics.metricsEnabled()) {
-                        int pageType = PageIO.getType(tmpWriteBuf);
+                    beforePageWrite.run();
 
-                        if (PageIO.isDataPageType(pageType))
-                            tracker.onDataPageWritten();
+                    snapshotMgr.beforePageWrite(fullId);
+
+                    int grpId = fullId.groupId();
+
+
+                    // TODO IGNITE-7792 add generic mapping.
+                    if (grpId == MetaStorage.METASTORAGE_CACHE_ID)
+                        pageMem = (PageMemoryEx) metaStorage.pageMemory();
+                    else if (grpId == TxLog.TX_LOG_CACHE_ID)
+                        pageMem = (PageMemoryEx) dataRegion(TxLog.TX_LOG_CACHE_NAME).pageMemory();
+                    else {
+                        CacheGroupContext grp = context().cache().cacheGroup(grpId);
+
+                        DataRegion region = grp != null ? grp.dataRegion() : null;
+
+                        if (region == null || !region.config().isPersistenceEnabled())
+                            continue;
+
+                        pageMem = (PageMemoryEx) region.pageMemory();
                     }
 
-                    if (!skipCrc) {
-                        PageIO.setCrc(writeAddr, PureJavaCrc32.calcCrc32(tmpWriteBuf, pageSize()));
+                    Integer tag = pageMem.getForCheckpoint(
+                            fullId, tmpWriteBuf, persStoreMetrics.metricsEnabled() ? tracker : null);
+
+                    if (tag != null) {
+                        if (tag == PageMemoryImpl.TRY_AGAIN_TAG) {
+                            pagesToRetry.add(fullId);
+
+                            continue;
+                        }
+
+                        assert PageIO.getType(tmpWriteBuf) != 0 : "Invalid state. Type is 0! pageId = " + U.hexLong(fullId.pageId());
+                        assert PageIO.getVersion(tmpWriteBuf) != 0 : "Invalid state. Version is 0! pageId = " + U.hexLong(fullId.pageId());
 
                         tmpWriteBuf.rewind();
+
+                        if (persStoreMetrics.metricsEnabled()) {
+                            int pageType = PageIO.getType(tmpWriteBuf);
+
+                            if (PageIO.isDataPageType(pageType))
+                                tracker.onDataPageWritten();
+                        }
+
+                        if (!skipCrc) {
+                            PageIO.setCrc(writeAddr, PureJavaCrc32.calcCrc32(tmpWriteBuf, pageSize()));
+
+                            tmpWriteBuf.rewind();
+                        }
+
+                        int curWrittenPages = writtenPagesCntr.incrementAndGet();
+
+                        snapshotMgr.onPageWrite(fullId, tmpWriteBuf, curWrittenPages, totalPagesToWrite);
+
+                        tmpWriteBuf.rewind();
+
+                        PageStore store = storeMgr.writeInternal(grpId, fullId.pageId(), tmpWriteBuf, tag, false);
+
+                        updStores.computeIfAbsent(store, k -> new LongAdder()).increment();
                     }
-
-                    int curWrittenPages = writtenPagesCntr.incrementAndGet();
-
-                    snapshotMgr.onPageWrite(fullId, tmpWriteBuf, curWrittenPages, totalPagesToWrite);
-
-                    tmpWriteBuf.rewind();
-
-                    PageStore store = storeMgr.writeInternal(grpId, fullId.pageId(), tmpWriteBuf, tag, false);
-
-                    updStores.computeIfAbsent(store, k -> new LongAdder()).increment();
                 }
+            } finally {
+                if (pageMem != null)
+                    pageMem.tryWakeupThrottledThreads();
             }
 
             return pagesToRetry;

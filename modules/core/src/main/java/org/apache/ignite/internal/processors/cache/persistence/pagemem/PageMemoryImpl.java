@@ -1356,6 +1356,12 @@ public class PageMemoryImpl implements PageMemoryEx {
         return completeFut;
     }
 
+    @Override
+    public void tryWakeupThrottledThreads() {
+        if (writeThrottle != null)
+            writeThrottle.tryWakeupThrottledThreads();
+    }
+
     /** {@inheritDoc} */
     @Override public long loadedPages() {
         long total = 0;
