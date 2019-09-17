@@ -127,7 +127,7 @@ public class PagesWriteThrottle implements PagesWriteThrottlePolicy {
         if (shouldThrottle) {
             int throttleLevel = cntr.getAndIncrement();
 
-            long throttleParkTimeNs = (long) (STARTING_THROTTLE_NANOS * Math.pow(BACKOFF_RATIO, throttleLevel));
+            long throttleParkTimeNs = calcThrottleParkTime(throttleLevel);
 
             if (throttleParkTimeNs > LOGGING_THRESHOLD) {
                 U.warn(log, "Parking thread=" + Thread.currentThread().getName()
@@ -147,6 +147,10 @@ public class PagesWriteThrottle implements PagesWriteThrottlePolicy {
                 parkThrds.clear();
             }
         }
+    }
+
+    private long calcThrottleParkTime(int throttleLevel) {
+        return (long) (STARTING_THROTTLE_NANOS * Math.exp(Math.log10(throttleLevel) + BACKOFF_RATIO));
     }
 
     @Override
