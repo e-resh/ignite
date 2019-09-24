@@ -67,11 +67,7 @@ import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetrics
 import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.processors.cache.persistence.freelist.io.PagesListMetaIO;
 import org.apache.ignite.internal.processors.cache.persistence.partstate.GroupPartitionId;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionCountersIO;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionMetaIO;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.TrackingPageIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.*;
 import org.apache.ignite.internal.processors.cache.persistence.wal.crc.IgniteDataIntegrityViolationException;
 import org.apache.ignite.internal.processors.query.GridQueryRowCacheCleaner;
 import org.apache.ignite.internal.util.GridConcurrentHashSet;
@@ -85,7 +81,6 @@ import org.apache.ignite.internal.util.offheap.GridOffHeapOutOfMemoryException;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.spi.encryption.EncryptionSpi;
 import org.apache.ignite.spi.encryption.noop.NoopEncryptionSpi;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -179,7 +174,7 @@ public class PageMemoryImpl implements PageMemoryEx {
     public static final int PAGE_OVERHEAD = 48;
 
     /** Number of random pages that will be picked for eviction. */
-    public static final int RANDOM_PAGES_EVICT_NUM = 5;
+    public static final int RANDOM_PAGES_EVICT_NUM = 10;
 
     /** Try again tag. */
     public static final int TRY_AGAIN_TAG = -1;
@@ -2234,6 +2229,8 @@ public class PageMemoryImpl implements PageMemoryEx {
             while (true) {
                 long cleanAddr = INVALID_REL_PTR;
                 long cleanTs = Long.MAX_VALUE;
+                long bPlusAddr = INVALID_REL_PTR;
+                long bPlusTs = Long.MAX_VALUE;
                 long dirtyAddr = INVALID_REL_PTR;
                 long dirtyTs = Long.MAX_VALUE;
                 long metaAddr = INVALID_REL_PTR;
@@ -2283,11 +2280,17 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                     final boolean dirty = isDirty(absPageAddr);
                     final boolean storMeta = isStoreMetadataPage(absPageAddr);
+                    final boolean bPlusIO = isBPlusIOPage(absPageAddr);
 
-                    if (pageTs < cleanTs && !dirty && !storMeta) {
+                    if (pageTs < cleanTs && !bPlusIO && !dirty && !storMeta) {
                         cleanAddr = rndAddr;
 
                         cleanTs = pageTs;
+                    }
+                    else if (pageTs < bPlusTs && bPlusIO && !dirty && !storMeta) {
+                        bPlusAddr = rndAddr;
+
+                        bPlusTs = pageTs;
                     }
                     else if (pageTs < dirtyTs && dirty && !storMeta) {
                         dirtyAddr = rndAddr;
@@ -2302,6 +2305,8 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                     if (cleanAddr != INVALID_REL_PTR)
                         relRmvAddr = cleanAddr;
+                    else if (bPlusAddr != INVALID_REL_PTR)
+                        relRmvAddr = bPlusAddr;
                     else if (dirtyAddr != INVALID_REL_PTR)
                         relRmvAddr = dirtyAddr;
                     else
@@ -2354,6 +2359,26 @@ public class PageMemoryImpl implements PageMemoryEx {
                 return io instanceof PagePartitionMetaIO
                     || io instanceof PagesListMetaIO
                     || io instanceof PagePartitionCountersIO;
+            }
+            catch (IgniteCheckedException ignored) {
+                return false;
+            }
+        }
+
+        /**
+         * @param absPageAddr Absolute page address
+         * @return {@code True} if page is related to BPlus index tree.
+         */
+        private boolean isBPlusIOPage(long absPageAddr) {
+            try {
+                long dataAddr = absPageAddr + PAGE_OVERHEAD;
+
+                int type = PageIO.getType(dataAddr);
+                int ver = PageIO.getVersion(dataAddr);
+
+                PageIO io = PageIO.getPageIO(type, ver);
+
+                return io instanceof BPlusIO || io instanceof BPlusMetaIO;
             }
             catch (IgniteCheckedException ignored) {
                 return false;
