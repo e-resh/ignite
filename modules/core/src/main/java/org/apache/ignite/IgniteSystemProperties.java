@@ -889,6 +889,18 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_LOADED_PAGES_BACKWARD_SHIFT_MAP = "IGNITE_LOADED_PAGES_BACKWARD_SHIFT_MAP";
 
     /**
+     * Disable to evict index pages from memory to storage.
+     * Default is {@code false}.
+     */
+    public static final String IGNITE_EVICT_IDX_PAGES_DISABLED = "IGNITE_EVICT_IDX_PAGES_DISABLED";
+
+    /**
+     * Number of random pages that will be picked for eviction.
+     * Default is 10.
+     */
+    public static final String IGNITE_RANDOM_PAGES_EVICT_NUM = "IGNITE_RANDOM_PAGES_EVICT_NUM";
+
+    /**
      * Property for setup percentage of archive size for checkpoint trigger. Default value is 0.25
      */
     public static final String IGNITE_CHECKPOINT_TRIGGER_ARCHIVE_SIZE_PERCENTAGE = "IGNITE_CHECKPOINT_TRIGGER_ARCHIVE_SIZE_PERCENTAGE";

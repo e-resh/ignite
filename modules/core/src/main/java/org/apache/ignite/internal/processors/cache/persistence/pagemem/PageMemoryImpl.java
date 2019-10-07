@@ -174,7 +174,8 @@ public class PageMemoryImpl implements PageMemoryEx {
     public static final int PAGE_OVERHEAD = 48;
 
     /** Number of random pages that will be picked for eviction. */
-    public static final int RANDOM_PAGES_EVICT_NUM = 10;
+    public static final int RANDOM_PAGES_EVICT_NUM
+            = IgniteSystemProperties.getInteger(IgniteSystemProperties.IGNITE_RANDOM_PAGES_EVICT_NUM, 20);
 
     /** Try again tag. */
     public static final int TRY_AGAIN_TAG = -1;
@@ -204,6 +205,9 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** Use new implementation of loaded pages table:  'Robin Hood hashing: backward shift deletion'. */
     private final boolean useBackwardShiftMap
         = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_LOADED_PAGES_BACKWARD_SHIFT_MAP, true);
+
+    private final boolean disableEvictionIdxPages
+        = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_EVICT_IDX_PAGES_DISABLED, false);
 
     /** */
     private ExecutorService asyncRunner = new ThreadPoolExecutor(
@@ -2104,6 +2108,9 @@ public class PageMemoryImpl implements PageMemoryEx {
                 return false;
 
             if (PageHeader.isAcquired(absPtr))
+                return false;
+
+            if (disableEvictionIdxPages && isBPlusIOPage(absPtr))
                 return false;
 
             Collection<FullPageId> cpPages = segCheckpointPages;
