@@ -4170,39 +4170,43 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
             ByteBuffer tmpWriteBuf = threadBuf.get();
 
-            for (FullPageId fullId : writePageIds) {
-                if (checkpointer.shutdownNow)
-                    break;
+            PageMemoryEx pageMem = null;
 
-                tmpWriteBuf.rewind();
+            try {
+                for (FullPageId fullId : writePageIds) {
+                    if (checkpointer.shutdownNow)
+                        break;
 
-                beforePageWrite.run();
+                    tmpWriteBuf.rewind();
 
-                snapshotMgr.beforePageWrite(fullId);
+                    beforePageWrite.run();
 
-                int grpId = fullId.groupId();
+                    snapshotMgr.beforePageWrite(fullId);
 
-                PageMemoryEx pageMem;
+                    int grpId = fullId.groupId();
 
-                // TODO IGNITE-7792 add generic mapping.
-                if (grpId == MetaStorage.METASTORAGE_CACHE_ID)
-                    pageMem = (PageMemoryEx)metaStorage.pageMemory();
-                else if (grpId == TxLog.TX_LOG_CACHE_ID)
-                    pageMem = (PageMemoryEx)dataRegion(TxLog.TX_LOG_CACHE_NAME).pageMemory();
-                else {
-                    CacheGroupContext grp = context().cache().cacheGroup(grpId);
+                    // TODO IGNITE-7792 add generic mapping.
+                    if (grpId == MetaStorage.METASTORAGE_CACHE_ID)
+                        pageMem = (PageMemoryEx) metaStorage.pageMemory();
+                    else if (grpId == TxLog.TX_LOG_CACHE_ID)
+                        pageMem = (PageMemoryEx) dataRegion(TxLog.TX_LOG_CACHE_NAME).pageMemory();
+                    else {
+                        CacheGroupContext grp = context().cache().cacheGroup(grpId);
 
-                    DataRegion region = grp != null ?grp .dataRegion() : null;
+                        DataRegion region = grp != null ? grp.dataRegion() : null;
 
-                    if (region == null || !region.config().isPersistenceEnabled())
-                        continue;
+                        if (region == null || !region.config().isPersistenceEnabled())
+                            continue;
 
-                    pageMem = (PageMemoryEx)region.pageMemory();
+                        pageMem = (PageMemoryEx) region.pageMemory();
+                    }
+
+                    pageMem.checkpointWritePage(fullId, tmpWriteBuf, pageStoreWriter, tracker);
                 }
-
-                pageMem.checkpointWritePage(fullId, tmpWriteBuf, pageStoreWriter, tracker);
+            } finally {
+                if (pageMem != null)
+                    pageMem.tryWakeupThrottledThreads();
             }
-
             return pagesToRetry;
         }
 
