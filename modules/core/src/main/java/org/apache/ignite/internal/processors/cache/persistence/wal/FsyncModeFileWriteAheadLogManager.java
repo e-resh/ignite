@@ -1631,6 +1631,10 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
                     }
 
                     synchronized (this) {
+                        changeLastArchivedIndexAndWakeupCompressor(toArchive);
+
+                        notifyAll();
+
                         while (locked.containsKey(toArchive) && !isCancelled()) {
                             blockingSectionBegin();
 
@@ -1641,10 +1645,6 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
                                 blockingSectionEnd();
                             }
                         }
-
-                        changeLastArchivedIndexAndWakeupCompressor(toArchive);
-
-                        notifyAll();
                     }
 
                     if (evt.isRecordable(EventType.EVT_WAL_SEGMENT_ARCHIVED)) {
@@ -1710,8 +1710,8 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
                     int segments = dsCfg.getWalSegments();
 
                     if (isArchiverEnabled()) {
-                        while ((curAbsWalIdx - lastAbsArchivedIdx > segments && cleanException == null))
-                            wait();
+                        while (curAbsWalIdx - lastAbsArchivedIdx > segments && cleanException == null)
+                            wait(1000);
                     }
 
                     if (cleanException != null)
@@ -1719,7 +1719,7 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
 
                     // Wait for formatter so that we do not open an empty file in DEFAULT mode.
                     while (curAbsWalIdx % dsCfg.getWalSegments() > formatted && cleanException == null)
-                        wait();
+                        wait(1000);
 
                     if (cleanException != null)
                         throw cleanException;
