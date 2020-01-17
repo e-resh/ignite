@@ -34,6 +34,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
@@ -210,6 +212,12 @@ public class PageMemoryImpl implements PageMemoryEx {
     private final boolean useBackwardShiftMap
         = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_LOADED_PAGES_BACKWARD_SHIFT_MAP, true);
 
+    private final boolean trackPagesEnabled
+        = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_TRACK_PAGES_ENABLED, false);
+
+     private final long trackPagesLockSpin
+        = IgniteSystemProperties.getLong(IgniteSystemProperties.IGNITE_TRACK_PAGES_LOG_SPIN, 10_000_000);
+
     /** */
     private ExecutorService asyncRunner = new ThreadPoolExecutor(
         0,
@@ -279,6 +287,11 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** Memory metrics to track dirty pages count and page replace rate. */
     private DataRegionMetricsImpl memMetrics;
 
+    private final PageTypeOperationsTracker replacePagesTracker = new PageTypeOperationsTracker();
+    private final PageTypeOperationsTracker readPagesTracker = new PageTypeOperationsTracker();
+
+    private final PageFrequencyUseTracker pageUsageTracker;
+
     /**
      * Marker that stop was invoked and memory is not supposed for any usage.
      */
@@ -342,6 +355,8 @@ public class PageMemoryImpl implements PageMemoryEx {
         rwLock = new OffheapReadWriteLock(128);
 
         this.memMetrics = memMetrics;
+
+        this.pageUsageTracker = new PageFrequencyUseTracker(log);
     }
 
     /** {@inheritDoc} */
@@ -711,6 +726,10 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                 seg.acquirePage(absPtr);
 
+                if (trackPagesEnabled) {
+                    trackPageUsage(fullId, absPtr);
+                }
+
                 return absPtr;
             }
         }
@@ -845,6 +864,11 @@ public class PageMemoryImpl implements PageMemoryEx {
                     actualPageId = PageIO.getPageId(buf);
 
                     memMetrics.onPageRead();
+
+                    if (trackPagesEnabled) {
+                        trackReadPage(lockedPageAbsPtr);
+                        trackPageUsage(fullId, lockedPageAbsPtr);
+                    }
                 }
                 catch (IgniteDataIntegrityViolationException ignore) {
                     U.warn(log, "Failed to read page (data integrity violation encountered, will try to " +
@@ -855,12 +879,59 @@ public class PageMemoryImpl implements PageMemoryEx {
                     tryToRestorePage(fullId, buf);
 
                     memMetrics.onPageRead();
+
+                    if (trackPagesEnabled) {
+                        trackReadPage(lockedPageAbsPtr);
+                        trackPageUsage(fullId, lockedPageAbsPtr);
+                    }
                 }
                 finally {
                     rwLock.writeUnlock(lockedPageAbsPtr + PAGE_LOCK_OFFSET,
                         actualPageId == 0 ? OffheapReadWriteLock.TAG_LOCK_ALWAYS : PageIdUtils.tag(actualPageId));
                 }
             }
+        }
+    }
+
+    private void trackReplacedPage(long absPageAddr) {
+        int type = PageIO.getType(absPageAddr + PAGE_OVERHEAD);
+        replacePagesTracker.trackPage(type);
+
+        long tracked = replacePagesTracker.tracked();
+        if (tracked > 0 && tracked % 1000_000 == 0) {
+            log.info("Page tracker: replaced " + tracked + " pages: [" +
+                    replacePagesTracker.trackedPageValues().entrySet().stream()
+                            .map(item -> "{" + item.getKey() +  ": " + item.getValue() + "}")
+                            .collect(Collectors.joining(",")) +
+                    "]");
+        }
+    }
+
+    private void trackReadPage(long absPageAddr) {
+        int type = PageIO.getType(absPageAddr + PAGE_OVERHEAD);
+        readPagesTracker.trackPage(type);
+
+        long tracked = readPagesTracker.tracked();
+        if (tracked > 0 && tracked % 1000_000 == 0) {
+            log.info("Page tracker: read " + tracked + " pages: [" +
+                    readPagesTracker.trackedPageValues().entrySet().stream()
+                            .map(item -> "{" + item.getKey() +  ": " + item.getValue() + "}")
+                            .collect(Collectors.joining(",")) +
+                    "]");
+        }
+    }
+
+    private void trackPageUsage(FullPageId pageId, long absPageAddr) {
+        int type = PageIO.getType(absPageAddr + PAGE_OVERHEAD);
+        pageUsageTracker.trackPage(pageId, type);
+
+        long tracked = pageUsageTracker.tracked();
+        if (tracked > 0 && tracked % trackPagesLockSpin == 0) {
+            log.info("Page tracker: usage " + tracked + " pages: [" +
+                    pageUsageTracker.trackedPageValues(1000).entrySet().stream()
+                            .map(item -> "{" + item.getKey() +  ": " + item.getValue() + "}")
+                            .collect(Collectors.joining(",")) +
+                    "]");
         }
     }
 
@@ -2189,6 +2260,10 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                     memMetrics.updatePageReplaceRate(U.currentTimeMillis() - PageHeader.readTimestamp(absPtr));
 
+                    if (trackPagesEnabled) {
+                        trackReplacedPage(absPtr);
+                    }
+
                     saveDirtyPage.writePage(
                         fullPageId,
                         wrapPointer(absPtr + PAGE_OVERHEAD, pageSize()),
@@ -2209,6 +2284,10 @@ public class PageMemoryImpl implements PageMemoryEx {
             }
             else {
                 memMetrics.updatePageReplaceRate(U.currentTimeMillis() - PageHeader.readTimestamp(absPtr));
+
+                if (trackPagesEnabled) {
+                    trackReplacedPage(absPtr);
+                }
 
                 // Page was not modified, ok to evict.
                 return true;

@@ -889,6 +889,19 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_LOADED_PAGES_BACKWARD_SHIFT_MAP = "IGNITE_LOADED_PAGES_BACKWARD_SHIFT_MAP";
 
     /**
+     * Enable tracking page usage.
+     * Output to console statistics through the number of pages every multiplicity from spin parameter {@link #IGNITE_TRACK_PAGES_LOG_SPIN}
+     * Default is {@code false}.
+     */
+    public static final String IGNITE_TRACK_PAGES_ENABLED = "IGNITE_TRACK_PAGES_ENABLED";
+
+    /**
+     * Pages number for cycle of output tracking page statistics
+     * Default is 1000_000.
+     */
+    public static final String IGNITE_TRACK_PAGES_LOG_SPIN = "IGNITE_TRACK_PAGES_LOG_SPIN";
+
+    /**
      * Property for setup percentage of archive size for checkpoint trigger. Default value is 0.25
      */
     public static final String IGNITE_CHECKPOINT_TRIGGER_ARCHIVE_SIZE_PERCENTAGE = "IGNITE_CHECKPOINT_TRIGGER_ARCHIVE_SIZE_PERCENTAGE";
