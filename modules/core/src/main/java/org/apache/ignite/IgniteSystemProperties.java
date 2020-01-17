@@ -895,6 +895,19 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_EVICT_IDX_PAGES_DISABLED = "IGNITE_EVICT_IDX_PAGES_DISABLED";
 
     /**
+     * Enable tracking page usage.
+     * Output to console statistics through the number of pages every multiplicity from spin parameter {@link #IGNITE_TRACK_PAGES_LOG_SPIN}
+     * Default is {@code false}.
+     */
+    public static final String IGNITE_TRACK_PAGES_ENABLED = "IGNITE_TRACK_PAGES_ENABLED";
+
+    /**
+     * Pages number for cycle of output tracking page statistics
+     * Default is 1000_000.
+     */
+    public static final String IGNITE_TRACK_PAGES_LOG_SPIN = "IGNITE_TRACK_PAGES_LOG_SPIN";
+
+    /**
      * Number of random pages that will be picked for eviction.
      * Default is 10.
      */
