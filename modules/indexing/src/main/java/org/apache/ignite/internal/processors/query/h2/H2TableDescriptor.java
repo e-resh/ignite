@@ -305,7 +305,7 @@ public class H2TableDescriptor implements GridH2SystemIndexFactory {
         ArrayList<IndexColumn> keyCols = new ArrayList<>(type.fields().size() + 1);
 
         // Check if key is simple type.
-        if (QueryUtils.isSqlType(type.keyClass())) {
+        if (QueryUtils.isSqlType(type.keyClass()) && affCol == null) {
             keyCols.add(keyCol);
         } else {
             for (String propName : type.fields().keySet()) {
