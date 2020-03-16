@@ -889,6 +889,19 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_LOADED_PAGES_BACKWARD_SHIFT_MAP = "IGNITE_LOADED_PAGES_BACKWARD_SHIFT_MAP";
 
     /**
+     * Disable to evict index inner pages from memory to storage.
+     * Use {@code True} if you are sure in the capacity of index pages in memory.
+     * Default is {@code false}.
+     */
+    public static final String IGNITE_EVICT_IDX_INNER_PAGES_DISABLED = "IGNITE_EVICT_IDX_INNER_PAGES_DISABLED";
+
+    /**
+    * Number of random pages that will be picked for eviction.
+    * Default is 30.
+    */
+    public static final String IGNITE_RANDOM_PAGES_EVICT_NUM = "IGNITE_RANDOM_PAGES_EVICT_NUM";
+
+    /**
      * Enable tracking page usage.
      * Output to console statistics through the number of pages every multiplicity from spin parameter {@link #IGNITE_TRACK_PAGES_LOG_SPIN}
      * Default is {@code false}.
@@ -900,6 +913,12 @@ public final class IgniteSystemProperties {
      * Default is 1000_000.
      */
     public static final String IGNITE_TRACK_PAGES_LOG_SPIN = "IGNITE_TRACK_PAGES_LOG_SPIN";
+
+    /**
+     * Number of millisecond to delay read page from IO. Need for benchmarks.
+     * Default is 0.
+     */
+    public static final String IGNITE_READ_PAGE_IO_DELAY = "IGNITE_READ_PAGE_IO_DELAY";
 
     /**
      * Property for setup percentage of archive size for checkpoint trigger. Default value is 0.25

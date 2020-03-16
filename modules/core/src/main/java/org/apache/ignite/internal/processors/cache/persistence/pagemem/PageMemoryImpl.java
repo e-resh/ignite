@@ -215,8 +215,11 @@ public class PageMemoryImpl implements PageMemoryEx {
     private final boolean trackPagesEnabled
         = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_TRACK_PAGES_ENABLED, false);
 
-     private final long trackPagesLockSpin
+    private final long trackPagesLockSpin
         = IgniteSystemProperties.getLong(IgniteSystemProperties.IGNITE_TRACK_PAGES_LOG_SPIN, 10_000_000);
+
+    private final long readPageIOBenchDelay
+        = IgniteSystemProperties.getLong(IgniteSystemProperties.IGNITE_READ_PAGE_IO_DELAY, 0);
 
     /** */
     private ExecutorService asyncRunner = new ThreadPoolExecutor(
@@ -865,6 +868,14 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                     memMetrics.onPageRead();
 
+                    if (readPageIOBenchDelay > 0) {
+                        try {
+                            Thread.sleep(readPageIOBenchDelay);
+                        } catch (InterruptedException e) {
+                            //nothing
+                        }
+                    }
+
                     if (trackPagesEnabled) {
                         trackReadPage(lockedPageAbsPtr);
                         trackPageUsage(fullId, lockedPageAbsPtr);
@@ -898,7 +909,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         replacePagesTracker.trackPage(type);
 
         long tracked = replacePagesTracker.tracked();
-        if (tracked > 0 && tracked % 1000_000 == 0) {
+        if (tracked > 0 && tracked % trackPagesLockSpin == 0) {
             log.info("Page tracker: replaced " + tracked + " pages: [" +
                     replacePagesTracker.trackedPageValues().entrySet().stream()
                             .map(item -> "{" + item.getKey() +  ": " + item.getValue() + "}")
@@ -912,7 +923,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         readPagesTracker.trackPage(type);
 
         long tracked = readPagesTracker.tracked();
-        if (tracked > 0 && tracked % 1000_000 == 0) {
+        if (tracked > 0 && tracked % trackPagesLockSpin == 0) {
             log.info("Page tracker: read " + tracked + " pages: [" +
                     readPagesTracker.trackedPageValues().entrySet().stream()
                             .map(item -> "{" + item.getKey() +  ": " + item.getValue() + "}")
@@ -926,7 +937,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         pageUsageTracker.trackPage(pageId, type);
 
         long tracked = pageUsageTracker.tracked();
-        if (tracked > 0 && tracked % trackPagesLockSpin == 0) {
+        if (tracked > 0 && tracked % (trackPagesLockSpin * 1000) == 0) {
             log.info("Page tracker: usage " + tracked + " pages: [" +
                     pageUsageTracker.trackedPageValues(1000).entrySet().stream()
                             .map(item -> "{" + item.getKey() +  ": " + item.getValue() + "}")
