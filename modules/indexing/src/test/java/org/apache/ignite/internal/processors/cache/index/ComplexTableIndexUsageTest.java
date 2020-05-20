@@ -7,6 +7,7 @@ import org.apache.ignite.cache.query.annotations.QuerySqlField;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.util.typedef.F;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.List;
@@ -48,16 +49,21 @@ public class ComplexTableIndexUsageTest extends AbstractIndexingCommonTest {
     assertUsingIndex(res3, "name");
     List<List<?>> res4 = executeSql("explain SELECT * FROM " + tblName + " WHERE (name='Alexey' or name='Dmitriy') and age='31'");
     assertUsingIndex(res4, "name");
+
+    List<List<?>> resData = executeSql("SELECT * FROM " + tblName + " WHERE (name='Alexey' or name='Dmitriy') and age='31'");
+    Assert.assertEquals(resData.size(), 2);
   }
 
   private void populateCache(IgniteCache<Long, Person> cache) {
     long cnt = 0;
     cache.put(++cnt, new Person("Ivan", 20));
-    cache.put(++cnt, new Person("Artem", 21));
+    cache.put(++cnt, new Person("Artem", 31));
     cache.put(++cnt, new Person("Alexey", 31));
+    cache.put(++cnt, new Person("Alexey", 32));
     cache.put(++cnt, new Person("Igor", 33));
     cache.put(++cnt, new Person("Semen", 18));
     cache.put(++cnt, new Person("Dmitriy", 31));
+    cache.put(++cnt, new Person("Dmitriy", 41));
   }
 
   /**
