@@ -549,9 +549,15 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
         f.reset();
         m.reset();
 
+        GridAffinityAssignment assignment = t.get3();
+
+        assert assignment != null;
+
+        assignment.unmarshall(ctx);
+
         CacheConfiguration ccfg = ctx.cache().cacheConfiguration(cacheName);
 
-        return new AffinityInfo(f, m, t.get3(), ctx.cacheObjects().contextForCache(ccfg));
+        return new AffinityInfo(f, m, assignment, ctx.cacheObjects().contextForCache(ccfg));
     }
 
     /**
