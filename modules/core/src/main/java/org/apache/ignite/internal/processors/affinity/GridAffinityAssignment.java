@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.processors.affinity;
 
-import java.io.Externalizable;
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,41 +26,32 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
 import org.apache.ignite.cluster.ClusterNode;
-import org.apache.ignite.internal.GridKernalContext;
-import org.apache.ignite.internal.managers.discovery.GridDiscoveryManager;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccCoordinator;
 import org.apache.ignite.internal.util.typedef.internal.S;
-import org.apache.ignite.internal.util.typedef.internal.U;
-
-import static java.util.stream.Collectors.toList;
 
 /**
  * Cached affinity calculations.
  */
 @SuppressWarnings("ForLoopReplaceableByForEach")
-public class GridAffinityAssignment implements AffinityAssignment, Externalizable {
+public class GridAffinityAssignment implements AffinityAssignment, Serializable {
     /** */
     private static final long serialVersionUID = 0L;
 
     /** Topology version. */
-    private AffinityTopologyVersion topVer;
+    private final AffinityTopologyVersion topVer;
 
     /** */
-    private MvccCoordinator mvccCrd;
-
-    /** Transferred collection of nodes UUIDs. */
-    private List<List<UUID>> assignmentUuids;
-
-    /** Map of primary node partitions. */
-    private Map<UUID, Set<Integer>> primary;
-
-    /** Map of backup node partitions. */
-    private Map<UUID, Set<Integer>> backup;
+    private final MvccCoordinator mvccCrd;
 
     /** Collection of calculated affinity nodes. */
-    private transient volatile List<List<ClusterNode>> assignment;
+    private List<List<ClusterNode>> assignment;
+
+    /** Map of primary node partitions. */
+    private final Map<UUID, Set<Integer>> primary;
+
+    /** Map of backup node partitions. */
+    private final Map<UUID, Set<Integer>> backup;
 
     /** Assignment node IDs */
     private transient volatile List<HashSet<UUID>> assignmentIds;
@@ -76,13 +64,6 @@ public class GridAffinityAssignment implements AffinityAssignment, Externalizabl
 
     /** */
     private transient List<List<ClusterNode>> idealAssignment;
-
-    /**
-     * Empty constructor required for {@link Externalizable}.
-     */
-    public GridAffinityAssignment() {
-        // No-op.
-    }
 
     /**
      * Constructs cached affinity calculations item.
@@ -319,66 +300,5 @@ public class GridAffinityAssignment implements AffinityAssignment, Externalizabl
     /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(GridAffinityAssignment.class, this, super.toString());
-    }
-
-    private void prepareMarshall() {
-        assignmentUuids = assignment.stream()
-                .map(nodes -> nodes.stream().map(ClusterNode::id).collect(toList()))
-                .collect(toList());
-    }
-
-    public void unmarshall(GridKernalContext ctx) {
-        GridDiscoveryManager discoMgr = ctx.discovery();
-
-        assignment = assignmentUuids.stream()
-                .map(nodes -> nodes.stream().map(discoMgr::node).collect(toList()))
-                .collect(toList());
-    }
-
-    @Override
-    public void writeExternal(ObjectOutput out) throws IOException {
-        prepareMarshall();
-
-        out.writeObject(topVer);
-        out.writeObject(mvccCrd);
-        writeAssignments(out, assignmentUuids);
-        U.writeMap(out, primary);
-        U.writeMap(out, backup);
-
-        out.flush();
-    }
-
-    private void writeAssignments(ObjectOutput out, List<List<UUID>> assignment) throws IOException {
-        if (assignment != null) {
-            out.writeInt(assignment.size());
-
-            for (List<UUID> nodes : assignment)
-                U.writeCollection(out, nodes);
-        }
-        else
-            out.writeInt(-1);
-    }
-
-    @Override
-    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-        topVer = (AffinityTopologyVersion) in.readObject();
-        mvccCrd = (MvccCoordinator) in.readObject();
-        assignmentUuids = readAssignments(in);
-        primary = U.readMap(in);
-        backup = U.readMap(in);
-    }
-
-    private List<List<UUID>> readAssignments(ObjectInput in) throws IOException, ClassNotFoundException {
-        int size = in.readInt();
-
-        // Check null flag.
-        if (size == -1)
-            return null;
-
-        List<List<UUID>> col = new ArrayList<>(size);
-        for (int i = 0; i < size; i++)
-            col.add(U.readList(in));
-
-        return col;
     }
 }
