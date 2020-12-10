@@ -375,9 +375,6 @@ public class H2TableDescriptor {
      */
     @SuppressWarnings("ZeroLengthArrayAllocation")
     public GridH2IndexBase createUserIndex(GridQueryIndexDescriptor idxDesc) {
-        IndexColumn keyCol = tbl.indexColumn(QueryUtils.KEY_COL, SortOrder.ASCENDING);
-        IndexColumn affCol = tbl.getAffinityKeyColumn();
-
         List<IndexColumn> cols = new ArrayList<>(idxDesc.fields().size() + 2);
 
         for (String field : idxDesc.fields()) {
@@ -387,16 +384,21 @@ public class H2TableDescriptor {
                 idxDesc.descending(field) ? SortOrder.DESCENDING : SortOrder.ASCENDING));
         }
 
-        GridH2RowDescriptor desc = tbl.rowDescriptor();
-
         if (idxDesc.type() == QueryIndexType.SORTED) {
-            List<IndexColumn> unwrappedKeyCols = extractKeyColumns(tbl, keyCol, affCol);
+            GridH2RowDescriptor desc = tbl.rowDescriptor();
+
+            IndexColumn keyCol = tbl.indexColumn(QueryUtils.KEY_COL, SortOrder.ASCENDING);
+            IndexColumn affCol = tbl.getAffinityKeyColumn();
+
+            IndexColumn affKeyCol = affCol != null && QueryUtils.KEY_FIELD_NAME.equals(affCol.columnName) ? null : affCol;
+
+            List<IndexColumn> unwrappedKeyCols = extractKeyColumns(tbl, keyCol, affKeyCol);
 
             List<IndexColumn> colsWithUnwrappedKey = new ArrayList<>(cols);
 
             H2Utils.addUniqueColumns(colsWithUnwrappedKey, unwrappedKeyCols);
 
-            cols = H2Utils.treeIndexColumns(desc, cols, keyCol, affCol);
+            cols = H2Utils.treeIndexColumns(desc, cols, keyCol, affKeyCol);
 
             return idx.createSortedIndex(
                 idxDesc.name(),
