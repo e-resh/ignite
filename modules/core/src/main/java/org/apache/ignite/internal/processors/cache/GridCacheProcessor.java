@@ -1052,6 +1052,8 @@ public class GridCacheProcessor extends GridProcessorAdapter {
 
             ctx.group().stopCache(ctx, destroy);
 
+            ctx.cacheObjects().onCacheStop(ctx);
+
             U.stopLifecycleAware(log, lifecycleAwares(ctx.group(), cache.configuration(), ctx.store().configuredStore()));
 
             IgnitePageStoreManager pageStore;

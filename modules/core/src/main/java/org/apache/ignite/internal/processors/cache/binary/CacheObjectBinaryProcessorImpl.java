@@ -22,16 +22,12 @@ import java.io.File;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import org.apache.ignite.IgniteBinary;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteClientDisconnectedException;
@@ -44,6 +40,7 @@ import org.apache.ignite.binary.BinaryObjectBuilder;
 import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.binary.BinaryType;
 import org.apache.ignite.binary.BinaryTypeConfiguration;
+import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.affinity.AffinityKeyMapper;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.BinaryConfiguration;
@@ -71,18 +68,7 @@ import org.apache.ignite.internal.binary.builder.BinaryObjectBuilderImpl;
 import org.apache.ignite.internal.binary.streams.BinaryInputStream;
 import org.apache.ignite.internal.binary.streams.BinaryOffheapInputStream;
 import org.apache.ignite.internal.processors.GridProcessorAdapter;
-import org.apache.ignite.internal.processors.cache.CacheDefaultBinaryAffinityKeyMapper;
-import org.apache.ignite.internal.processors.cache.CacheObject;
-import org.apache.ignite.internal.processors.cache.CacheObjectByteArrayImpl;
-import org.apache.ignite.internal.processors.cache.CacheObjectContext;
-import org.apache.ignite.internal.processors.cache.CacheObjectImpl;
-import org.apache.ignite.internal.processors.cache.CacheObjectValueContext;
-import org.apache.ignite.internal.processors.cache.GridCacheContext;
-import org.apache.ignite.internal.processors.cache.GridCacheDefaultAffinityKeyMapper;
-import org.apache.ignite.internal.processors.cache.GridCacheUtils;
-import org.apache.ignite.internal.processors.cache.IncompleteCacheObject;
-import org.apache.ignite.internal.processors.cache.KeyCacheObject;
-import org.apache.ignite.internal.processors.cache.KeyCacheObjectImpl;
+import org.apache.ignite.internal.processors.cache.*;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cacheobject.IgniteCacheObjectProcessor;
 import org.apache.ignite.internal.processors.cacheobject.UserCacheObjectByteArrayImpl;
@@ -1426,6 +1412,48 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
      */
     public void setBinaryMetadataFileStoreDir(@Nullable File binaryMetadataFileStoreDir) {
         this.binaryMetadataFileStoreDir = binaryMetadataFileStoreDir;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onCacheStop(GridCacheContext cctx) {
+        CacheConfiguration<?,?> config = cctx.config();
+
+        Collection<QueryEntity> queryEntities = config.getQueryEntities();
+
+        Set<String> types = queryEntities.stream()
+                .flatMap(e -> Stream.of(e.getKeyType(), e.getValueType()))
+                .filter(Objects::nonNull)
+                .filter(type -> {
+                    int typeId = typeId(type);
+                    return metadataLocCache.containsKey(typeId);
+                })
+                .collect(Collectors.toSet());
+
+        for (DynamicCacheDescriptor cacheDesc : ctx.cache().cacheDescriptors().values()) {
+            if (cacheDesc.cacheId() == cctx.cacheId())
+                continue;
+
+            if (!cacheDesc.cacheType().userCache())
+                continue;
+
+            CacheConfiguration<?,?> cfg = cacheDesc.cacheConfiguration();
+            for (QueryEntity e : cfg.getQueryEntities()) {
+                if (e.getKeyType() != null) {
+                    types.remove(e.getKeyType());
+                }
+                if (e.getValueType() != null) {
+                    types.remove(e.getValueType());
+                }
+            }
+        }
+
+        for (String type : types) {
+            int typeId = typeId(type);
+            metadataLocCache.remove(typeId);
+
+            if (!ctx.clientNode())
+                metadataFileStore.evictMetadata(typeId);
+        }
     }
 
     /** */
