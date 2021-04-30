@@ -332,4 +332,11 @@ public interface IgniteCacheObjectProcessor extends GridProcessor {
      * @throws IgniteException If failed.
      */
     public Object marshalToBinary(Object obj, boolean failIfUnregistered) throws IgniteException;
+
+    /**
+     * Cache stop callback.
+     * @param cctx Cache context.
+     *
+     */
+    public void onCacheStop(GridCacheContext cctx);
 }

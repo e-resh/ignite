@@ -125,6 +125,34 @@ class BinaryMetadataFileStore {
     }
 
     /**
+     * Delete binary metadata file for given typeId.
+     *
+     * @param typeId typeId of BinaryMetadata to be read.
+     */
+    void evictMetadata(int typeId) {
+        if (!CU.isPersistenceEnabled(ctx.config()))
+            return;
+
+        try {
+            File file = new File(workDir, typeId + ".bin");
+
+            if (file.exists()) {
+                file.delete();
+            }
+        }
+        catch (Exception e) {
+            final String msg = "Failed to delete metadata for typeId: " + typeId +
+                    "; exception was thrown: " + e.getMessage();
+
+            U.error(log, msg);
+
+            ctx.failure().process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+
+            throw new IgniteException(msg, e);
+        }
+    }
+
+    /**
      * Restores metadata on startup of {@link CacheObjectBinaryProcessorImpl} but before starting discovery.
      */
     void restoreMetadata() {

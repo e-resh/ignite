@@ -344,7 +344,7 @@ public class BinaryObjectBuilderImpl implements BinaryObjectBuilder {
 
             BinarySchemaRegistry schemaReg = ctx.schemaRegistry(typeId);
 
-            if (schemaReg.schema(schemaId) == null) {
+            if (schemaReg.schema(schemaId) == null || meta == null) {
                 String typeName = this.typeName;
 
                 if (typeName == null) {
