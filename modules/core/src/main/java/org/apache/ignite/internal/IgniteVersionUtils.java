@@ -60,7 +60,7 @@ public class IgniteVersionUtils {
      * Static initializer.
      */
     static {
-        VER_STR = IgniteProperties.get("ignite.version")
+        VER_STR = versionWithoutTail(IgniteProperties.get("ignite.version"))
             .replace(".a", "-a") // Backward compatibility fix.
             .replace(".b", "-b")
             .replace(".final", "-final");
@@ -99,6 +99,19 @@ public class IgniteVersionUtils {
      */
     public static synchronized String formatBuildTimeStamp(long ts) {
         return BUILD_TSTAMP_DATE_FORMATTER.format(new Date(ts));
+    }
+
+    /**
+     * Cuts tail part of version from ignite version string
+     *
+     * @param igniteVersion - version from property
+     * @return canonical versiob string
+     */
+    private static String versionWithoutTail(String igniteVersion) {
+        String[] versions = igniteVersion.split("\\.");
+        if (versions.length < 3)
+            throw new IllegalStateException("Version parts less than 3");
+        return String.join(".", versions[0], versions[1], versions[2]);
     }
 
     /**
