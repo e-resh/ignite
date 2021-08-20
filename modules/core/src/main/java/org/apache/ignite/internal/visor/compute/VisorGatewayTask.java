@@ -171,8 +171,11 @@ public class VisorGatewayTask implements ComputeTask<Object[], Object> {
 
                 Collection<Object> res = isList ? new ArrayList<>() : new HashSet<>();
 
-                for (String item : items.split(";"))
-                    res.add(toObject(itemsCls, item));
+                for (String item : items.split(";")) {
+                    Object el = toObject(itemsCls, item);
+                    if (el != null)
+                        res.add(el);
+                }
 
                 return res;
             }
