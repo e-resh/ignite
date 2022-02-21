@@ -253,7 +253,12 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         if (log == null)
             log = U.logger(cctx.kernalContext(), logRef, GridCacheMapEntry.class);
 
-        key = (KeyCacheObject)cctx.kernalContext().cacheObjects().prepareForCache(key, cctx);
+        try {
+            key = (KeyCacheObject)cctx.kernalContext().cacheObjects().prepareForCache(key, cctx);
+        }
+        catch (IgniteCheckedException e) {
+            e.printStackTrace(); // TODO: Fix it
+        }
 
         assert key != null;
 
@@ -2303,7 +2308,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 cctx.disableTriggeringCacheInterceptorOnConflict()
             );
 
-            key.valueBytes(cctx.cacheObjectContext());
+            key.prepareForCache(cctx.cacheObjectContext());
 
             if (isNear()) {
                 CacheDataRow dataRow = val != null ? new CacheDataRowAdapter(key, val, ver, expireTimeExtras()) : null;

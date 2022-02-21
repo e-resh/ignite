@@ -37,15 +37,7 @@ import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cache.store.CacheStore;
 import org.apache.ignite.cluster.ClusterNode;
-import org.apache.ignite.configuration.CacheConfiguration;
-import org.apache.ignite.configuration.DataPageEvictionMode;
-import org.apache.ignite.configuration.DataRegionConfiguration;
-import org.apache.ignite.configuration.DataStorageConfiguration;
-import org.apache.ignite.configuration.DeploymentMode;
-import org.apache.ignite.configuration.DiskPageCompression;
-import org.apache.ignite.configuration.IgniteConfiguration;
-import org.apache.ignite.configuration.MemoryConfiguration;
-import org.apache.ignite.configuration.TransactionConfiguration;
+import org.apache.ignite.configuration.*;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteFeatures;
 import org.apache.ignite.internal.IgniteNodeAttributes;
@@ -409,6 +401,22 @@ public class ValidationOnNodeJoinUtils {
                         "cacheName=" + cc.getName() + ", schemaName=" + cc.getSqlSchema() + ']');
                 }
             }
+        }
+
+        CompressionConfiguration compressionCfg = cc.getCompressionConfiguration();
+        if (compressionCfg != null && compressionCfg.isEnabled()) {
+            if (compressionCfg.isUseDictionary()) {
+                if (compressionCfg.getDictionarySize() <= 0 || compressionCfg.getDictionaryTrainBufferLength() <= 0 ||
+                        compressionCfg.getDictionaryTrainSamples() <= 0) {
+                    throw new IgniteCheckedException("When dictionary compression enabled, dictionary " +
+                            "bounds should be non-negative integers [cacheName=" + cc.getName() +
+                            ", dictionarySize=" + compressionCfg.getDictionarySize() +
+                            ", dictionaryTrainSamples=" + compressionCfg.getDictionaryTrainSamples() +
+                            ", dictionaryTrainBufferLength=" + compressionCfg.getDictionaryTrainBufferLength() + "]");
+                }
+            }
+
+            apply(assertParam,compressionCfg.getCompressorFactory() != null, "compressor factory is null");
         }
 
         if (cc.isEncryptionEnabled() && !ctx.clientNode()) {

@@ -107,7 +107,10 @@ public class KeyCacheObjectImpl extends CacheObjectAdapter implements KeyCacheOb
     }
 
     /** {@inheritDoc} */
-    @Override public CacheObject prepareForCache(CacheObjectContext ctx) {
+    @Override public CacheObject prepareForCache(CacheObjectContext ctx) throws IgniteCheckedException {
+        if (valBytes == null)
+            valBytes = ctx.kernalContext().cacheObjects().marshal(ctx, val);
+
         return this;
     }
 
