@@ -236,7 +236,7 @@ public final class BinaryObjectImpl extends BinaryObjectExImpl implements Extern
     /** {@inheritDoc} */
     @Override public CacheObject prepareForCache(CacheObjectContext ctx) {
         if (!detached())
-            return ((BinaryObjectImpl)detach()).prepareForCache(ctx);
+            return detach().prepareForCache(ctx);
 
         tryCompress(ctx.compressor());
 

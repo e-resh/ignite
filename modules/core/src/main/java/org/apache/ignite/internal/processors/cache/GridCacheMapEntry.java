@@ -257,7 +257,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             key = (KeyCacheObject)cctx.kernalContext().cacheObjects().prepareForCache(key, cctx);
         }
         catch (IgniteCheckedException e) {
-            e.printStackTrace(); // TODO: Fix it
+            throw new IgniteException(e);
         }
 
         assert key != null;
