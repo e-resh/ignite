@@ -405,18 +405,13 @@ public class ValidationOnNodeJoinUtils {
 
         CompressionConfiguration compressionCfg = cc.getCompressionConfiguration();
         if (compressionCfg != null && compressionCfg.isEnabled()) {
-            if (compressionCfg.isUseDictionary()) {
-                if (compressionCfg.getDictionarySize() <= 0 || compressionCfg.getDictionaryTrainBufferLength() <= 0 ||
-                        compressionCfg.getDictionaryTrainSamples() <= 0) {
-                    throw new IgniteCheckedException("When dictionary compression enabled, dictionary " +
-                            "bounds should be non-negative integers [cacheName=" + cc.getName() +
-                            ", dictionarySize=" + compressionCfg.getDictionarySize() +
-                            ", dictionaryTrainSamples=" + compressionCfg.getDictionaryTrainSamples() +
-                            ", dictionaryTrainBufferLength=" + compressionCfg.getDictionaryTrainBufferLength() + "]");
-                }
+            if (compressionCfg.getCompressionLevel() < 0 || compressionCfg.getCompressionLevel() > 17) {
+                throw new IgniteCheckedException("When dictionary compression enabled, compression level " +
+                        "bounds should be >= 0 and <= 17 [cacheName=" + cc.getName() +
+                        ", compressionLevel=" + compressionCfg.getCompressionLevel() + "]");
             }
 
-            apply(assertParam,compressionCfg.getCompressorFactory() != null, "compressor factory is null");
+            apply(assertParam, compressionCfg.getCompressorFactory() != null, "compressor factory is null");
         }
 
         if (cc.isEncryptionEnabled() && !ctx.clientNode()) {
