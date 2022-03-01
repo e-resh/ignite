@@ -336,11 +336,11 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
     }
 
     /** {@inheritDoc} */
-    @Nullable @Override public CacheObject prepareForCache(@Nullable CacheObject obj, GridCacheContext cctx) throws IgniteCheckedException {
+    @Nullable @Override public CacheObject prepareForCache(@Nullable CacheObject obj, GridCacheContext cctx, boolean compress) throws IgniteCheckedException {
         if (obj == null)
             return null;
 
-        return obj.prepareForCache(cctx.cacheObjectContext());
+        return obj.prepareForCache(cctx.cacheObjectContext(), compress);
     }
 
     /** {@inheritDoc} */
@@ -959,20 +959,20 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
 
         ctx.resource().injectGeneric(dfltAffMapper);
 
+        String cacheName = ccfg.getName();
+
         CompressionConfiguration compressionCfg = ccfg.getCompressionConfiguration();
-
         Compressor compressor = null;
-
         if (compressionCfg != null && compressionCfg.isEnabled()) {
             compressor = compressionCfg.getCompressorFactory().create();
-            compressor.configure(compressionCfg);
+            compressor.configure(ctx, cacheName, compressionCfg);
         }
 
         return new CacheObjectContext(ctx,
-            ccfg.getName(),
+            cacheName,
             dfltAffMapper,
             compressor,
-            QueryUtils.isCustomAffinityMapper(ccfg.getAffinityMapper()),
+            QueryUtils.isCustomAffinityMapper(cacheAffMapper),
             ccfg.isCopyOnRead(),
             storeVal,
             ctx.config().isPeerClassLoadingEnabled() && !isBinaryEnabled(ccfg),

@@ -18,10 +18,11 @@
 package org.apache.ignite.binary;
 
 import org.apache.ignite.configuration.CompressionConfiguration;
+import org.apache.ignite.internal.GridKernalContext;
 
 
 public interface Compressor {
-    void configure(CompressionConfiguration compressionCfg);
+    void configure(GridKernalContext ctx, String cacheName, CompressionConfiguration compressionCfg);
 
     byte[] tryCompress(byte[] arr);
 

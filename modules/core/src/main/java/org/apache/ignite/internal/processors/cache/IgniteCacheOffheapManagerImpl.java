@@ -1662,7 +1662,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             if (oldRow.expireTime() != dataRow.expireTime())
                 return false;
 
-            oldRow.key().prepareForCache(cctx.cacheObjectContext());
+            oldRow.key().prepareForCache(cctx.cacheObjectContext(), false); // Don't compress keys
             oldRow.value().prepareForCache(cctx.cacheObjectContext());
 
             int oldLen = oldRow.size();
@@ -1752,7 +1752,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             else {
                 CacheObjectContext coCtx = cctx.cacheObjectContext();
 
-                key.prepareForCache(coCtx);
+                key.prepareForCache(coCtx, false); // Don't compress keys
                 val.prepareForCache(coCtx);
 
                 rowStore.addRow(dataRow, grp.statisticsHolderData());
@@ -2489,7 +2489,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                 CacheObjectContext coCtx = cctx.cacheObjectContext();
 
                 // Make sure value bytes initialized.
-                key.prepareForCache(coCtx);
+                key.prepareForCache(coCtx, false); // Don't comress keys
                 val.prepareForCache(coCtx);
 
                 CacheDataRow old;
@@ -2731,7 +2731,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
         /** {@inheritDoc} */
         @Override public CacheDataRow find(GridCacheContext cctx, KeyCacheObject key) throws IgniteCheckedException {
-            key.prepareForCache(cctx.cacheObjectContext());
+            key.prepareForCache(cctx.cacheObjectContext(), false);
 
             int cacheId = grp.sharedGroup() ? cctx.cacheId() : CU.UNDEFINED_CACHE_ID;
 

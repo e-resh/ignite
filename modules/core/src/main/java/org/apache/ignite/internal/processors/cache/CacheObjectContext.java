@@ -135,6 +135,13 @@ public class CacheObjectContext implements CacheObjectValueContext {
     }
 
     /**
+     * @return Binary object comression enabled flag.
+     */
+    public boolean compressEnabled() {
+        return compressor() != null;
+    }
+
+    /**
      * @param o Object to unwrap.
      * @param keepBinary Keep binary flag.
      * @param cpy Copy value flag.
