@@ -405,9 +405,9 @@ public class ValidationOnNodeJoinUtils {
 
         CompressionConfiguration compressionCfg = cc.getCompressionConfiguration();
         if (compressionCfg != null && compressionCfg.isEnabled()) {
-            if (compressionCfg.getCompressionLevel() < 0 || compressionCfg.getCompressionLevel() > 17) {
-                throw new IgniteCheckedException("When dictionary compression enabled, compression level " +
-                        "bounds should be >= 0 and <= 17 [cacheName=" + cc.getName() +
+            if (compressionCfg.getCompressionLevel() < -131072 || compressionCfg.getCompressionLevel() > 22) {
+                throw new IgniteCheckedException("When compression enabled, compression level " +
+                        "bounds should be >= -131072 and <= 22 [cacheName=" + cc.getName() +
                         ", compressionLevel=" + compressionCfg.getCompressionLevel() + "]");
             }
 
