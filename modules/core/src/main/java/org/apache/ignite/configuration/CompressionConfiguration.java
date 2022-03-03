@@ -12,7 +12,11 @@ public class CompressionConfiguration implements Serializable {
     /** Compression enabled. */
     private boolean enabled = true;
 
-    /** Compression level. */
+    /**
+     * Compression level. {@code 0} to use default.
+     * ZSTD: from {@code -131072} to {@code 22} (default {@code 3}).
+     * LZ4: from {@code 0} to {@code 17} (default {@code 0}).
+     */
     private int compressionLevel = 0;
 
     /** Compressor factory. */
@@ -100,7 +104,7 @@ public class CompressionConfiguration implements Serializable {
 
             try {
                 Class<? extends Compressor> cls = (Class<? extends Compressor>)
-                        Class.forName("org.apache.ignite.internal.binary.compress.LZ4CompressAdapter");
+                        Class.forName("org.apache.ignite.internal.binary.compress.SnappyCompressAdapter");
 
                 res = cls.newInstance();
             }

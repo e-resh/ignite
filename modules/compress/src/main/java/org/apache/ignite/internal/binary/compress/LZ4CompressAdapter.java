@@ -37,6 +37,8 @@ public class LZ4CompressAdapter implements Compressor {
     log = ctx.log(LZ4CompressAdapter.class);
 
     compressor = level == 0 ? fastCompressor : factory.highCompressor(level);
+
+    log.info("Cache " + cacheName + ": LZ4 compression with level: " + level);
   }
 
   @Override
