@@ -104,7 +104,7 @@ public class CompressionConfiguration implements Serializable {
 
             try {
                 Class<? extends Compressor> cls = (Class<? extends Compressor>)
-                        Class.forName("org.apache.ignite.internal.binary.compress.SnappyCompressAdapter");
+                        Class.forName("org.apache.ignite.internal.binary.compress.ZstdCompressAdapter");
 
                 res = cls.newInstance();
             }
