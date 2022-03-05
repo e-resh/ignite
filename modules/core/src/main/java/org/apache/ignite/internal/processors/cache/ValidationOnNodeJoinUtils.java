@@ -77,6 +77,7 @@ import static org.apache.ignite.configuration.DeploymentMode.PRIVATE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CONSISTENCY_CHECK_SKIPPED;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_TX_CONFIG;
 import static org.apache.ignite.internal.processors.cache.GridCacheUtils.isDefaultDataRegionPersistent;
+import static org.apache.ignite.internal.processors.compress.CompressionProcessor.*;
 import static org.apache.ignite.internal.processors.security.SecurityUtils.nodeSecurityContext;
 
 /**
@@ -405,10 +406,21 @@ public class ValidationOnNodeJoinUtils {
 
         CompressionConfiguration compressionCfg = cc.getCompressionConfiguration();
         if (compressionCfg != null && compressionCfg.isEnabled()) {
-            if (compressionCfg.getCompressionLevel() < -131072 || compressionCfg.getCompressionLevel() > 22) {
-                throw new IgniteCheckedException("When compression enabled, compression level " +
-                        "bounds should be >= -131072 and <= 22 [cacheName=" + cc.getName() +
-                        ", compressionLevel=" + compressionCfg.getCompressionLevel() + "]");
+            String cacheName = cc.getName();
+            BinaryObjectCompressionAlgorithm alg = compressionCfg.getCompressionAlgorithm();
+            int lvl = compressionCfg.getCompressionLevel();
+
+            switch (alg) {
+                case LZ4:
+                    checkCompressionLevelBounds(cacheName, lvl, LZ4_MIN_LEVEL, LZ4_MAX_LEVEL, "LZ4");
+                    break;
+
+                case ZSTD:
+                    checkCompressionLevelBounds(cacheName, lvl, ZSTD_MIN_LEVEL, ZSTD_MAX_LEVEL, "ZSTD");
+                    break;
+
+                case SNAPPY:
+                    break;
             }
 
             apply(assertParam, compressionCfg.getCompressorFactory() != null, "compressor factory is null");
@@ -481,6 +493,21 @@ public class ValidationOnNodeJoinUtils {
 
             CU.checkAttributeMismatch(log, null, n.id(), "deploymentMode", "Deployment mode",
                 locDepMode, rmtDepMode, true);
+        }
+    }
+
+    /**
+     * @param compressLevel Compression level.
+     * @param cacheName Cache name.
+     * @param min Min level.
+     * @param max Max level.
+     * @param algorithmName Algorithm name.
+     */
+    private static void checkCompressionLevelBounds(String cacheName, int compressLevel, int min, int max, String algorithmName) {
+        if (compressLevel < min  || compressLevel > max) {
+            throw new IllegalArgumentException("When compression enabled, compression level for " + algorithmName +
+                    "bounds should be >= " + min + " and <= " + max + " [cacheName=" + cacheName +
+                    ", compressionLevel=" + compressLevel + "]");
         }
     }
 
