@@ -12,6 +12,9 @@ import org.apache.ignite.internal.GridKernalContext;
 
 import java.util.Arrays;
 
+import static org.apache.ignite.internal.processors.compress.CompressionProcessor.LZ4_MAX_LEVEL;
+import static org.apache.ignite.internal.processors.compress.CompressionProcessor.LZ4_MIN_LEVEL;
+
 public class LZ4CompressAdapter implements Compressor {
   private static  final long LOG_THROTTLE_STEP = 100_000;
 
@@ -34,7 +37,7 @@ public class LZ4CompressAdapter implements Compressor {
   @Override
   public void configure(GridKernalContext ctx, String cacheName, CompressionConfiguration compressionCfg) {
     int level = compressionCfg.getCompressionLevel();
-    assert level >= 0 && level <= 17: level;
+    assert level >= LZ4_MIN_LEVEL && level <= LZ4_MAX_LEVEL: level;
 
     this.cacheName = cacheName;
 

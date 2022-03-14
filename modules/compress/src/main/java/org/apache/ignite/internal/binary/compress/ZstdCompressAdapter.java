@@ -11,14 +11,17 @@ import org.apache.ignite.internal.GridKernalContext;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.apache.ignite.internal.processors.compress.CompressionProcessor.ZSTD_MAX_LEVEL;
+import static org.apache.ignite.internal.processors.compress.CompressionProcessor.ZSTD_MIN_LEVEL;
+
 /**
  * ZSTD: from {@code -131072} to {@code 22} (default {@code 3})
  */
 public class ZstdCompressAdapter implements Compressor {
-  private final long PRINT_PER = 65536;
+  private static final long PRINT_PER = 65536;
 
   /** */
-  private final boolean CHECK = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_COMPRESSION_CHECK);
+  private static final boolean CHECK = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_COMPRESSION_CHECK);
 
   protected static final int MIN_DELTA_BYTES = 8;
 
@@ -27,10 +30,6 @@ public class ZstdCompressAdapter implements Compressor {
 
   protected final AtomicLong totalUncompressedSz = new AtomicLong();
   protected final AtomicLong totalCompressedSz = new AtomicLong();
-
-  private static  final long LOG_THROTTLE_STEP = 10_000;
-
-  private final ThreadLocal<Long> logThrottleCntr = ThreadLocal.withInitial(() -> 0L);
 
   private volatile int level;
 
@@ -41,7 +40,7 @@ public class ZstdCompressAdapter implements Compressor {
   @Override
   public void configure(GridKernalContext ctx, String cacheName, CompressionConfiguration compressionCfg) {
     int level = compressionCfg.getCompressionLevel();
-    assert level >= -131072 && level <= 22: level;
+    assert level >= ZSTD_MIN_LEVEL && level <= ZSTD_MAX_LEVEL: level;
 
     this.level = level;
     this.cacheName = cacheName;
@@ -107,14 +106,14 @@ public class ZstdCompressAdapter implements Compressor {
       }
     }
 
-
     byte[] message = compressed == null ? input : compressed;
 
     totalUncompressedSz.addAndGet(inputLen);
     totalCompressedSz.addAndGet(message.length);
 
-    if (totalSamples.incrementAndGet() % PRINT_PER == 0L)
-      System.out.println("Ratio: " + (float)totalCompressedSz.get() / (float)totalUncompressedSz.get() +
+    if (log.isDebugEnabled() && totalSamples.incrementAndGet() % PRINT_PER == 0L)
+      log.info("Cache name " + cacheName + ": ratio: " +
+              (float) totalCompressedSz.get() / (float) totalUncompressedSz.get() +
               ", acceptance: " + (acceptedSamples.get() * 100L) / (totalSamples.get()) + "%");
 
     if ((inputLen - message.length) > MIN_DELTA_BYTES) {
