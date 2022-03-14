@@ -71,7 +71,11 @@ import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetrics
 import org.apache.ignite.internal.processors.cache.persistence.PageStoreWriter;
 import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.processors.cache.persistence.freelist.io.PagesListMetaIO;
+import org.apache.ignite.internal.processors.cache.persistence.freelist.io.PagesListNodeIO;
 import org.apache.ignite.internal.processors.cache.persistence.partstate.GroupPartitionId;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusInnerIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusLeafIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusMetaIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionCountersIO;
@@ -184,9 +188,6 @@ public class PageMemoryImpl implements PageMemoryEx {
      */
     public static final int PAGE_OVERHEAD = 48;
 
-    /** Number of random pages that will be picked for eviction. */
-    public static final int RANDOM_PAGES_EVICT_NUM = 5;
-
     /** Try again tag. */
     public static final int TRY_AGAIN_TAG = -1;
 
@@ -215,6 +216,13 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** Use new implementation of loaded pages table:  'Robin Hood hashing: backward shift deletion'. */
     private final boolean useBackwardShiftMap
         = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_LOADED_PAGES_BACKWARD_SHIFT_MAP, true);
+
+    /** Number of random pages that will be picked for eviction. */
+    private final int randomPageEvictNum
+            = IgniteSystemProperties.getInteger(IgniteSystemProperties.IGNITE_RANDOM_PAGES_EVICT_NUM, 30);
+
+    private final boolean disableEvictIdxInnerPages
+            = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_EVICT_IDX_INNER_PAGES_DISABLED, false);
 
     /** */
     private ExecutorService asyncRunner = new ThreadPoolExecutor(
@@ -2288,6 +2296,12 @@ public class PageMemoryImpl implements PageMemoryEx {
             if (PageHeader.isAcquired(absPtr))
                 return false;
 
+            if (disableEvictIdxInnerPages) {
+                PageIO io = getPageIO(absPtr);
+                if (isBPlusInnerIOPage(io) || isListNodeIOPage(io))
+                    return false;
+            }
+
             clearRowCache(fullPageId, absPtr);
 
             if (isDirty(absPtr)) {
@@ -2410,12 +2424,23 @@ public class PageMemoryImpl implements PageMemoryEx {
             while (true) {
                 long cleanAddr = INVALID_REL_PTR;
                 long cleanTs = Long.MAX_VALUE;
+
+                long bPlusLeafAddr = INVALID_REL_PTR;
+                long bPlusLeafTs = Long.MAX_VALUE;
+
+                long bPlusInnerAddr = INVALID_REL_PTR;
+                long bPlusInnerTs = Long.MAX_VALUE;
+
+                long listNodeAddr = INVALID_REL_PTR;
+                long listNodeTs = Long.MAX_VALUE;
+
                 long dirtyAddr = INVALID_REL_PTR;
                 long dirtyTs = Long.MAX_VALUE;
+
                 long metaAddr = INVALID_REL_PTR;
                 long metaTs = Long.MAX_VALUE;
 
-                for (int i = 0; i < RANDOM_PAGES_EVICT_NUM; i++) {
+                for (int i = 0; i < randomPageEvictNum; i++) {
                     ++iterations;
 
                     if (iterations > pool.pages() * FULL_SCAN_THRESHOLD)
@@ -2457,27 +2482,48 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                     final long pageTs = PageHeader.readTimestamp(absPageAddr);
 
+                    PageIO io = getPageIO(absPageAddr);
+
+                    final boolean bPlusLeafIO = isBPlusLeafIOPage(io);
+                    final boolean bPlusInnerIO = isBPlusInnerIOPage(io);
+                    final boolean listNodeIO = isListNodeIOPage(io);
+
                     final boolean dirty = isDirty(absPageAddr);
-                    final boolean storMeta = isStoreMetadataPage(absPageAddr);
+                    final boolean storMeta = isStoreMetadataPage(io);
 
-                    if (pageTs < cleanTs && !dirty && !storMeta) {
+                    if (pageTs < cleanTs && !bPlusLeafIO && !bPlusInnerIO && !listNodeIO && !dirty && !storMeta) {
                         cleanAddr = rndAddr;
-
                         cleanTs = pageTs;
+                    }
+                    else if (pageTs < bPlusLeafTs && bPlusLeafIO && !dirty && !storMeta) {
+                        bPlusLeafAddr = rndAddr;
+                        bPlusLeafTs = pageTs;
+                    }
+                    else if (pageTs < bPlusInnerTs && bPlusInnerIO && !dirty && !storMeta) {
+                        bPlusInnerAddr = rndAddr;
+                        bPlusInnerTs = pageTs;
+                    }
+                    else if (pageTs < listNodeTs && listNodeIO && !dirty && !storMeta) {
+                        listNodeAddr = rndAddr;
+                        listNodeTs = pageTs;
                     }
                     else if (pageTs < dirtyTs && dirty && !storMeta) {
                         dirtyAddr = rndAddr;
-
                         dirtyTs = pageTs;
                     }
                     else if (pageTs < metaTs && storMeta) {
                         metaAddr = rndAddr;
-
                         metaTs = pageTs;
                     }
 
                     if (cleanAddr != INVALID_REL_PTR)
                         relRmvAddr = cleanAddr;
+                    else if (bPlusLeafAddr != INVALID_REL_PTR)
+                        relRmvAddr = bPlusLeafAddr;
+                    else if (bPlusInnerAddr != INVALID_REL_PTR)
+                        relRmvAddr = bPlusInnerAddr;
+                    else if (listNodeAddr != INVALID_REL_PTR)
+                        relRmvAddr = listNodeAddr;
                     else if (dirtyAddr != INVALID_REL_PTR)
                         relRmvAddr = dirtyAddr;
                     else
@@ -2516,24 +2562,55 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         /**
          * @param absPageAddr Absolute page address
-         * @return {@code True} if page is related to partition metadata, which is loaded in saveStoreMetadata().
+         * @return page.
          */
-        private boolean isStoreMetadataPage(long absPageAddr) {
+        private PageIO getPageIO(long absPageAddr) {
             try {
                 long dataAddr = absPageAddr + PAGE_OVERHEAD;
 
                 int type = PageIO.getType(dataAddr);
                 int ver = PageIO.getVersion(dataAddr);
 
-                PageIO io = PageIO.getPageIO(type, ver);
-
-                return io instanceof PagePartitionMetaIO
-                    || io instanceof PagesListMetaIO
-                    || io instanceof PagePartitionCountersIO;
+                return PageIO.getPageIO(type, ver);
             }
             catch (IgniteCheckedException ignored) {
-                return false;
+                return null;
             }
+        }
+
+        /**
+         * @param io page
+         * @return {@code True} if page is related to partition metadata, which is loaded in saveStoreMetadata().
+         */
+        private boolean isStoreMetadataPage(PageIO io) {
+            return io instanceof PagePartitionMetaIO
+                    || io instanceof PagesListMetaIO
+                    || io instanceof PagePartitionCountersIO
+                    || io instanceof BPlusMetaIO;
+        }
+
+        /**
+         * @param io page
+         * @return {@code True} if page is related to BPlus leaf index tree.
+         */
+        private boolean isBPlusLeafIOPage(PageIO io) {
+            return io instanceof BPlusLeafIO;
+        }
+
+        /**
+         * @param io page
+         * @return {@code True} if page is related to BPlus inner index tree.
+         */
+        private boolean isBPlusInnerIOPage(PageIO io) {
+            return io instanceof BPlusInnerIO;
+        }
+
+        /**
+         * @param io page
+         * @return {@code True} if page is related to list node.
+         */
+        private boolean isListNodeIOPage(PageIO io) {
+            return io instanceof PagesListNodeIO;
         }
 
         /**
