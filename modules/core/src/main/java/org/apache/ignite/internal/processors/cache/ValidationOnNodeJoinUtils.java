@@ -37,15 +37,7 @@ import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cache.store.CacheStore;
 import org.apache.ignite.cluster.ClusterNode;
-import org.apache.ignite.configuration.CacheConfiguration;
-import org.apache.ignite.configuration.DataPageEvictionMode;
-import org.apache.ignite.configuration.DataRegionConfiguration;
-import org.apache.ignite.configuration.DataStorageConfiguration;
-import org.apache.ignite.configuration.DeploymentMode;
-import org.apache.ignite.configuration.DiskPageCompression;
-import org.apache.ignite.configuration.IgniteConfiguration;
-import org.apache.ignite.configuration.MemoryConfiguration;
-import org.apache.ignite.configuration.TransactionConfiguration;
+import org.apache.ignite.configuration.*;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteFeatures;
 import org.apache.ignite.internal.IgniteNodeAttributes;
@@ -85,6 +77,7 @@ import static org.apache.ignite.configuration.DeploymentMode.PRIVATE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CONSISTENCY_CHECK_SKIPPED;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_TX_CONFIG;
 import static org.apache.ignite.internal.processors.cache.GridCacheUtils.isDefaultDataRegionPersistent;
+import static org.apache.ignite.internal.processors.compress.CompressionProcessor.*;
 import static org.apache.ignite.internal.processors.security.SecurityUtils.nodeSecurityContext;
 
 /**
@@ -411,6 +404,28 @@ public class ValidationOnNodeJoinUtils {
             }
         }
 
+        CompressionConfiguration compressionCfg = cc.getCompressionConfiguration();
+        if (compressionCfg != null && compressionCfg.isEnabled()) {
+            String cacheName = cc.getName();
+            BinaryObjectCompressionAlgorithm alg = compressionCfg.getCompressionAlgorithm();
+            int lvl = compressionCfg.getCompressionLevel();
+
+            switch (alg) {
+                case LZ4:
+                    checkCompressionLevelBounds(cacheName, lvl, LZ4_MIN_LEVEL, LZ4_MAX_LEVEL, "LZ4");
+                    break;
+
+                case ZSTD:
+                    checkCompressionLevelBounds(cacheName, lvl, ZSTD_MIN_LEVEL, ZSTD_MAX_LEVEL, "ZSTD");
+                    break;
+
+                case SNAPPY:
+                    break;
+            }
+
+            apply(assertParam, compressionCfg.getCompressorFactory() != null, "compressor factory is null");
+        }
+
         if (cc.isEncryptionEnabled() && !ctx.clientNode()) {
             StringBuilder cacheSpec = new StringBuilder("[cacheName=").append(cc.getName())
                 .append(", groupName=").append(cc.getGroupName())
@@ -478,6 +493,21 @@ public class ValidationOnNodeJoinUtils {
 
             CU.checkAttributeMismatch(log, null, n.id(), "deploymentMode", "Deployment mode",
                 locDepMode, rmtDepMode, true);
+        }
+    }
+
+    /**
+     * @param compressLevel Compression level.
+     * @param cacheName Cache name.
+     * @param min Min level.
+     * @param max Max level.
+     * @param algorithmName Algorithm name.
+     */
+    private static void checkCompressionLevelBounds(String cacheName, int compressLevel, int min, int max, String algorithmName) {
+        if (compressLevel < min  || compressLevel > max) {
+            throw new IllegalArgumentException("When compression enabled, compression level for " + algorithmName +
+                    "bounds should be >= " + min + " and <= " + max + " [cacheName=" + cacheName +
+                    ", compressionLevel=" + compressLevel + "]");
         }
     }
 

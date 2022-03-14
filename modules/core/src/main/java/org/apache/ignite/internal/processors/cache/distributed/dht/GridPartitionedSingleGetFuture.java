@@ -443,7 +443,7 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
                 boolean skipEntry = readNoEntry;
 
                 if (readNoEntry) {
-                    KeyCacheObject key0 = (KeyCacheObject)cctx.cacheObjects().prepareForCache(key, cctx);
+                    KeyCacheObject key0 = (KeyCacheObject)cctx.cacheObjects().prepareForCache(key, cctx, false); // Don't compress keys
 
                     CacheDataRow row = mvccSnapshot != null ?
                         cctx.offheap().mvccRead(cctx, key0, mvccSnapshot) :

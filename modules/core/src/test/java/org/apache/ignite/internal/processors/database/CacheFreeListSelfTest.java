@@ -750,7 +750,7 @@ public class CacheFreeListSelfTest extends GridCommonAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public CacheObject prepareForCache(CacheObjectContext ctx) {
+        @Override public CacheObject prepareForCache(CacheObjectContext ctx, boolean compress) {
             assert false;
 
             return this;
