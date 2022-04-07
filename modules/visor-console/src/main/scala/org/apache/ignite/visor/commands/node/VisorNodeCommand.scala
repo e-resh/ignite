@@ -221,11 +221,7 @@ class VisorNodeCommand extends VisorConsoleCommand {
                         t += ("Deployment mode", node.attribute(ATTR_DEPLOYMENT_MODE))
                         t += ("Language runtime", node.attribute(ATTR_LANG_RUNTIME))
 
-                        val ver = U.productVersion(node)
-                        val verStr = ver.major() + "." + ver.minor() + "." + ver.maintenance() +
-                            (if (F.isEmpty(ver.stage())) "" else "-" + ver.stage())
-
-                        t += ("Ignite version", verStr)
+                        t += ("Ignite version", node.attribute("org.apache.ignite.full.ver"))
 
                         val igniteInstanceName: String = node.attribute(ATTR_IGNITE_INSTANCE_NAME)
 
