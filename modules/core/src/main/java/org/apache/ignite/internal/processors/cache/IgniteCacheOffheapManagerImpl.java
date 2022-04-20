@@ -1773,6 +1773,18 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                 throw new NodeStoppingException("Operation has been cancelled (node is stopping).");
 
             try {
+                CacheObjectContext cctx = grp.cacheObjectContext();
+                for (DataRowCacheAware row : rows) {
+                    KeyCacheObject key = row.key();
+                    CacheObject val = row.value();
+
+                    if (key != null)
+                        key.prepareForCache(cctx, false);
+
+                    if (val != null)
+                        val.prepareForCache(cctx);
+                }
+
                 rowStore.addRows(F.view(rows, row -> row.value() != null), grp.statisticsHolderData());
 
                 boolean cacheIdAwareGrp = grp.sharedGroup() || grp.storeCacheIdInDataPage();
