@@ -76,18 +76,7 @@ class BinaryMetadataFileStore {
 
         fileIOFactory = ctx.config().getDataStorageConfiguration().getFileIOFactory();
 
-        if (binaryMetadataFileStoreDir != null)
-            workDir = binaryMetadataFileStoreDir;
-        else {
-            final String subFolder = ctx.pdsFolderResolver().resolveFolders().folderName();
-
-            workDir = new File(U.resolveWorkDirectory(
-                ctx.config().getWorkDirectory(),
-                "binary_meta",
-                false
-            ),
-                subFolder);
-        }
+        workDir = binaryMetadataFileStoreDir != null ? binaryMetadataFileStoreDir : U.resolveBinaryMetaWorkDirectory(ctx);
 
         U.ensureDirectory(workDir, "directory for serialized binary metadata", log);
     }

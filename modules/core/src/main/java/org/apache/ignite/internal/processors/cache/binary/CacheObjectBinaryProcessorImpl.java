@@ -1427,7 +1427,7 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
     }
 
     /** {@inheritDoc} */
-    @Override public void onCacheStop(GridCacheContext cctx) {
+    @Override public void onCacheGroupStop(GridCacheContext cctx, boolean destroy) {
         CacheConfiguration<?,?> config = cctx.config();
 
         Collection<QueryEntity> queryEntities = config.getQueryEntities();
@@ -1463,7 +1463,7 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
             int typeId = typeId(type);
             metadataLocCache.remove(typeId);
 
-            if (!ctx.clientNode())
+            if (!ctx.clientNode() && destroy)
                 metadataFileStore.evictMetadata(typeId);
         }
     }
