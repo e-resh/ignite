@@ -349,5 +349,5 @@ public interface IgniteCacheObjectProcessor extends GridProcessor {
      * @param cctx Cache context.
      *
      */
-    public void onCacheStop(GridCacheContext cctx);
+    public void onCacheGroupStop(GridCacheContext cctx, boolean destroy);
 }

@@ -3,16 +3,19 @@ package org.apache.ignite.internal.binary;
 import com.google.common.collect.Sets;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjectBuilder;
 import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.configuration.*;
+import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.processors.cacheobject.IgniteCacheObjectProcessor;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
+import java.io.File;
 import java.sql.Timestamp;
 import java.util.Collections;
 import java.util.Date;
@@ -57,7 +60,7 @@ public class BinaryMetaDataCacheEvictionTest extends GridCommonAbstractTest {
    */
   @Test
   public void testDestroyCache() throws Exception {
-    IgniteEx ignite = startGrid();
+    IgniteEx ignite = startGrid(0);
     ignite.cluster().active(true);
     QueryEntity entityV1 = createEntityV1(CACHE_NAME_1);
     IgniteCache<Long, BinaryObject> cache = startCacheByEntity(ignite, CACHE_NAME_1, entityV1);
@@ -68,16 +71,19 @@ public class BinaryMetaDataCacheEvictionTest extends GridCommonAbstractTest {
     int typeId = processor.typeId(CACHE_VAL_TYPE);
 
     assertNotNull(processor.metadata(typeId));
+    assertTrue(binaryFileExists(ignite.context(), typeId));
 
     cache.destroy();
 
     assertNull(processor.metadata(typeId));
+    assertFalse(binaryFileExists(ignite.context(), typeId));
 
     QueryEntity entityV2 = createEntityV2(CACHE_NAME_1);
     cache = startCacheByEntity(ignite, CACHE_NAME_1, entityV2);
     populateDataV2(ignite, cache);
 
     assertNotNull(processor.metadata(typeId));
+    assertTrue(binaryFileExists(ignite.context(), typeId));
   }
 
   /**
@@ -87,7 +93,7 @@ public class BinaryMetaDataCacheEvictionTest extends GridCommonAbstractTest {
    */
   @Test
   public void testDestroyMultipleCache() throws Exception {
-    IgniteEx ignite = startGrid();
+    IgniteEx ignite = startGrid(0);
     ignite.cluster().active(true);
     IgniteCache<Long, BinaryObject> cache1 = startCacheByEntity(ignite, CACHE_NAME_1, createEntityV1(CACHE_NAME_1));
     populateDataV1(ignite, cache1);
@@ -100,20 +106,54 @@ public class BinaryMetaDataCacheEvictionTest extends GridCommonAbstractTest {
     int typeId = processor.typeId(CACHE_VAL_TYPE);
 
     assertNotNull(processor.metadata(typeId));
+    assertTrue(binaryFileExists(ignite.context(), typeId));
 
     cache1.destroy();
 
     assertNotNull(processor.metadata(typeId));
+    assertTrue(binaryFileExists(ignite.context(), typeId));
 
     cache2.destroy();
 
     assertNull(processor.metadata(typeId));
+    assertFalse(binaryFileExists(ignite.context(), typeId));
 
     QueryEntity entityV2 = createEntityV2(CACHE_NAME_1);
     cache1 = startCacheByEntity(ignite, CACHE_NAME_1, entityV2);
     populateDataV2(ignite, cache1);
 
     assertNotNull(processor.metadata(typeId));
+    assertTrue(binaryFileExists(ignite.context(), typeId));
+  }
+
+  @Test
+  public void testMetadataAvailibilityAfterRestart() throws Exception {
+    IgniteEx ignite = startGrid(1);
+    ignite.cluster().active(true);
+    QueryEntity entityV1 = createEntityV1(CACHE_NAME_1);
+    IgniteCache<Long, BinaryObject> cache = startCacheByEntity(ignite, CACHE_NAME_1, entityV1);
+    populateDataV1(ignite, cache);
+
+    IgniteCacheObjectProcessor processor = ignite.context().cacheObjects();
+
+    int typeId = processor.typeId(CACHE_VAL_TYPE);
+
+    assertNotNull(processor.metadata(typeId));
+
+    stopGrid(1);
+
+    assertTrue(binaryFileExists(ignite.context(), typeId));
+
+    ignite = startGrid(1);
+    processor = ignite.context().cacheObjects();
+
+    assertNotNull(processor.metadata(typeId));
+  }
+
+  private boolean binaryFileExists(GridKernalContext ctx, int typeId) throws IgniteCheckedException {
+    final File binaryMateWokrDir = U.resolveBinaryMetaWorkDirectory(ctx);
+    final File metaTypeFile = new File(binaryMateWokrDir, typeId + ".bin");
+    return metaTypeFile.exists();
   }
 
   /**
