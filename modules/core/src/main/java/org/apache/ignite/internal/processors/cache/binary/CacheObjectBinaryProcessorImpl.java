@@ -29,10 +29,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BooleanSupplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.cache.CacheException;
 import org.apache.ignite.IgniteBinary;
 import org.apache.ignite.IgniteCheckedException;
@@ -46,6 +50,7 @@ import org.apache.ignite.binary.BinaryObjectBuilder;
 import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.binary.BinaryType;
 import org.apache.ignite.binary.BinaryTypeConfiguration;
+import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.affinity.AffinityKeyMapper;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.BinaryConfiguration;
@@ -86,6 +91,7 @@ import org.apache.ignite.internal.processors.cache.CacheObjectByteArrayImpl;
 import org.apache.ignite.internal.processors.cache.CacheObjectContext;
 import org.apache.ignite.internal.processors.cache.CacheObjectImpl;
 import org.apache.ignite.internal.processors.cache.CacheObjectValueContext;
+import org.apache.ignite.internal.processors.cache.DynamicCacheDescriptor;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheDefaultAffinityKeyMapper;
 import org.apache.ignite.internal.processors.cache.GridCacheUtils;
@@ -1690,6 +1696,47 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
             }
 
             throw new BinaryObjectException("Failed to remove metadata for type: " + typeId, ex);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onCacheGroupStop(GridCacheContext cctx, boolean destroy) {
+        CacheConfiguration<?,?> config = cctx.config();
+
+        Collection<QueryEntity> queryEntities = config.getQueryEntities();
+
+        Set<String> types = queryEntities.stream()
+                .flatMap(e -> Stream.of(e.getKeyType(), e.getValueType()))
+                .filter(Objects::nonNull)
+                .filter(type -> {
+                    int typeId = typeId(type);
+                    return metadataLocCache.containsKey(typeId);
+                })
+                .collect(Collectors.toSet());
+
+        for (DynamicCacheDescriptor cacheDesc : ctx.cache().cacheDescriptors().values()) {
+            if (cacheDesc.cacheId() == cctx.cacheId())
+                continue;
+
+            if (!cacheDesc.cacheType().userCache())
+                continue;
+
+            CacheConfiguration<?,?> cfg = cacheDesc.cacheConfiguration();
+            for (QueryEntity e : cfg.getQueryEntities()) {
+                if (e.getKeyType() != null) {
+                    types.remove(e.getKeyType());
+                }
+                if (e.getValueType() != null) {
+                    types.remove(e.getValueType());
+                }
+            }
+        }
+
+        if (!ctx.clientNode() && destroy) {
+            for (String type : types) {
+                int typeId = typeId(type);
+                removeType(typeId);
+            }
         }
     }
 

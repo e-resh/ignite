@@ -2681,6 +2681,15 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             ctx.query().onCacheStop(cacheName);
     }
 
+    private void prepareCacheGroupStop(int grpId, boolean destroy) {
+        CacheGroupContext grp = cacheGrps.get(grpId);
+        if (grp != null) {
+            for (GridCacheContext ctx : grp.caches()) {
+                ctx.cacheObjects().onCacheGroupStop(ctx, destroy);
+            }
+        }
+    }
+
     /**
      * @param startTopVer Cache start version.
      * @param err Cache start error if any.
@@ -2856,6 +2865,9 @@ public class GridCacheProcessor extends GridProcessorAdapter {
                             sharedCtx.database().checkpointReadLock();
 
                             try {
+                                for (IgniteBiTuple<CacheGroupContext, Boolean> grp : grpsToStop)
+                                    prepareCacheGroupStop(grp.get1().groupId(), grp.get2());
+
                                 boolean destroyCache = action.request().destroy();
 
                                 prepareCacheStop(cacheName, destroyCache);

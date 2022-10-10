@@ -368,4 +368,11 @@ public interface IgniteCacheObjectProcessor extends GridProcessor {
      * @throws org.apache.ignite.binary.BinaryObjectException In case of error.
      */
     public BinaryType registerClass(Class<?> cls) throws BinaryObjectException;
+
+    /**
+     * Cache stop callback.
+     * @param cctx Cache context.
+     *
+     */
+    public void onCacheGroupStop(GridCacheContext cctx, boolean destroy);
 }
