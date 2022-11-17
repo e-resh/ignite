@@ -27,6 +27,7 @@ import org.apache.ignite.internal.direct.stream.DirectByteBufferStream;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.plugin.extensions.communication.MessageFactory;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -337,6 +338,27 @@ public class DirectByteBufferStreamImplV2ByteOrderSelfTest {
         testWriteArrayInternalOverflow(arr, false, true, 3);
         testWriteArrayInternalOverflow(arr, true, false, 3);
         testWriteArrayInternalOverflow(arr, true, true, 3);
+    }
+
+    @Test
+    public void testStringMessage() {
+        String msg = GridTestUtils.randomString(RND, ARR_LEN);
+
+        stream.writeString(msg);
+
+        buff.rewind();
+
+        assertEquals(msg, stream.readString());
+    }
+    @Test
+    public void testCyrrilicString() {
+        String msg = GridTestUtils.randomCyrrilicString(RND, ARR_LEN);
+
+        stream.writeString(msg);
+
+        buff.rewind();
+
+        assertEquals(msg, stream.readString());
     }
 
     /**
