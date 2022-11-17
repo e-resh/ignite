@@ -133,7 +133,7 @@ public final class GridTestUtils {
     /** */
     static final String ALPHABETH = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890_";
 
-    static final String CYRRILIC_ALPHABETH = "АаБбВвГгДдЕеЁёЖжЗзИиЙйКкЛлМмНнОоПпРрСсТтУуФфХхЦцЧчШшЩщЪъЫыЬьЭэЮюЯя";
+    static final String CYRILLIC_ALPHABETH = "АаБбВвГгДдЕеЁёЖжЗзИиЙйКкЛлМмНнОоПпРрСсТтУуФфХхЦцЧчШшЩщЪъЫыЬьЭэЮюЯя";
 
     /**
      * Hook object intervenes to discovery message handling
@@ -2136,13 +2136,13 @@ public final class GridTestUtils {
      * @param maxLen Maximal length of string
      * @return Random string object.
      */
-    public static String randomCyrrilicString(Random rnd, int maxLen) {
+    public static String randomCyrillicString(Random rnd, int maxLen) {
         int len = rnd.nextInt(maxLen);
 
         StringBuilder b = new StringBuilder(len);
 
         for (int i = 0; i < len; i++)
-            b.append(CYRRILIC_ALPHABETH.charAt(rnd.nextInt(CYRRILIC_ALPHABETH.length())));
+            b.append(CYRILLIC_ALPHABETH.charAt(rnd.nextInt(CYRILLIC_ALPHABETH.length())));
 
         return b.toString();
     }

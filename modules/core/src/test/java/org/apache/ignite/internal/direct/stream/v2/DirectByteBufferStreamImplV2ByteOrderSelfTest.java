@@ -351,8 +351,8 @@ public class DirectByteBufferStreamImplV2ByteOrderSelfTest {
         assertEquals(msg, stream.readString());
     }
     @Test
-    public void testCyrrilicString() {
-        String msg = GridTestUtils.randomCyrrilicString(RND, ARR_LEN);
+    public void testCyrillicString() {
+        String msg = GridTestUtils.randomCyrillicString(RND, ARR_LEN);
 
         stream.writeString(msg);
 
