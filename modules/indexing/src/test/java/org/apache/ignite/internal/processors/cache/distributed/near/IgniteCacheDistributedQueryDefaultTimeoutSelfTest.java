@@ -27,6 +27,7 @@ import javax.cache.CacheException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.query.QueryClientTimeoutException;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -99,24 +100,27 @@ public class IgniteCacheDistributedQueryDefaultTimeoutSelfTest extends GridCommo
     /** */
     @Test
     public void testRemoteQueryExecutionTimeout() throws Exception {
-        testQueryCancel(CACHE_SIZE, VAL_SIZE, QRY_1, 500, TimeUnit.MILLISECONDS, true, true);
+        testQueryCancel(CACHE_SIZE, VAL_SIZE, QRY_1, 500, TimeUnit.MILLISECONDS, true,
+                true, QueryClientTimeoutException.class);
     }
 
     /** */
     @Test
     public void testRemoteQueryWithMergeTableTimeout() throws Exception {
-        testQueryCancel(CACHE_SIZE, VAL_SIZE, QRY_2, 500, TimeUnit.MILLISECONDS, true, false);
+        testQueryCancel(CACHE_SIZE, VAL_SIZE, QRY_2, 500, TimeUnit.MILLISECONDS, true,
+                false, null);
     }
 
     /** */
     @Test
     public void testRemoteQueryExecutionCancel0() throws Exception {
-        testQueryCancel(CACHE_SIZE, VAL_SIZE, QRY_1, 1, TimeUnit.MILLISECONDS, false, true);
+        testQueryCancel(CACHE_SIZE, VAL_SIZE, QRY_1, 1, TimeUnit.MILLISECONDS, false,
+                true, QueryCancelledException.class);
     }
 
     /** */
     private void testQueryCancel(int keyCnt, int valSize, String sql, int timeoutUnits, TimeUnit timeUnit,
-        boolean timeout, boolean checkCanceled) throws Exception {
+        boolean timeout, boolean checkCanceled, Class<? extends IgniteCheckedException> exceptionClass) throws Exception {
         try (Ignite client = startGrid("client")) {
             IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
 
@@ -164,7 +168,7 @@ public class IgniteCacheDistributedQueryDefaultTimeoutSelfTest extends GridCommo
             catch (CacheException ex) {
                 error("Got expected exception", ex);
 
-                assertNotNull("Must throw correct exception", X.cause(ex, QueryCancelledException.class));
+                assertNotNull("Must throw correct exception", X.cause(ex, exceptionClass));
             }
 
             // Give some time to clean up.
