@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
@@ -168,6 +169,9 @@ public class GridH2Table extends TableBase {
 
     /** Table statistics. */
     private volatile TableStatistics tblStats;
+
+    /** Table statistics recalculate pending flag*/
+    private volatile AtomicBoolean tblStatsPending = new AtomicBoolean();
 
     /** Logger. */
     @GridToStringExclude
@@ -1212,7 +1216,8 @@ public class GridH2Table extends TableBase {
         if (!localQuery())
             return 10_000; // Fallback to the previous behaviour.
 
-        refreshStatsIfNeeded();
+        if (!tblStatsPending.get())
+            refreshStatsIfNeeded();
 
         return tblStats.primaryRowCount();
     }
@@ -1238,10 +1243,20 @@ public class GridH2Table extends TableBase {
         long curTotalRowCnt = size.sum();
 
         // Update stats if total table size changed significantly since the last stats update.
-        if (needRefreshStats(statsTotalRowCnt, curTotalRowCnt)) {
-            long primaryRowCnt = rowCount(true);
-
-            tblStats = new TableStatistics(curTotalRowCnt, primaryRowCnt);
+        if (needRefreshStats(statsTotalRowCnt, curTotalRowCnt) && tblStatsPending.compareAndSet(false, true)) {
+            if (log.isInfoEnabled())
+                log.info("Started calculation statistics for table [cacheName=" + cacheInfo.name() +
+                        ", schemaName=" + getSchema().getName() + ", tableName=" + getName() +
+                        "], statistics row count: " + statsTotalRowCnt + ", current row count: " + curTotalRowCnt);
+            try {
+                long primaryRowCnt = rowCount(true);
+                tblStats = new TableStatistics(curTotalRowCnt, primaryRowCnt);
+            } finally {
+                tblStatsPending.set(false);
+            }
+            if (log.isInfoEnabled())
+                log.info("Finished calculation statistics for table [cacheName=" + cacheInfo.name() +
+                        ", schemaName=" + getSchema().getName() + ", tableName=" + getName() + "]");
         }
     }
 
