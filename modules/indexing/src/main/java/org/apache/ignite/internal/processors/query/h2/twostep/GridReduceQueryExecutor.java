@@ -963,8 +963,10 @@ public class GridReduceQueryExecutor {
                 }
             }
 
-            if (timeoutMillis > 0 && (U.currentTimeMillis() - start) > timeoutMillis)
+            if (timeoutMillis > 0 && (U.currentTimeMillis() - start) > timeoutMillis) {
+                cancel.cancel();
                 throw new QueryClientTimeoutException(timeoutMillis);
+            }
         }
     }
 
