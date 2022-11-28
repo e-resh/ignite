@@ -41,6 +41,8 @@ RUN chmod 777 ${IGNITE_HOME}
 # Grant permission to execute entry point
 RUN chmod 555 $IGNITE_HOME/run.sh
 
+RUN chmod 555 $IGNITE_HOME/bin/*.sh
+
 # Entry point
 CMD $IGNITE_HOME/run.sh
 
