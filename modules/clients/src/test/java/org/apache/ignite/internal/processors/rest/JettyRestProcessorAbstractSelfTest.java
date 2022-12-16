@@ -2270,10 +2270,28 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
         jsonTaskResult(ret);
 
         ret = content(new VisorGatewayArgument(VisorCacheMetricsCollectorTask.class)
+            .argument(VisorCacheMetricsCollectorTaskArg.class));
+
+        info("VisorCacheMetricsCollectorTask result: " + ret);
+
+        jsonTaskResult(ret);
+
+        ret = content(new VisorGatewayArgument(VisorCacheMetricsCollectorTask.class)
+                .argument(VisorCacheMetricsCollectorTaskArg.class, false)
+                .collection(String.class, "nil"));
+
+        info("VisorCacheMetricsCollectorTask result: " + ret);
+
+        JsonNode node = jsonTaskResult(ret);
+        assertEquals(5, node.size());
+
+        ret = content(new VisorGatewayArgument(VisorCacheMetricsCollectorTask.class)
             .argument(VisorCacheMetricsCollectorTaskArg.class, false)
             .collection(String.class, "person"));
 
-        info("VisorCacheMetricsCollectorTask result: " + ret);
+        info("VisorCacheMetricsCollectorTask (with cache) result: " + ret);
+
+        jsonTaskResult(ret);
 
         ret = content(new VisorGatewayArgument(VisorCacheMetricsCollectorTask.class)
             .forNodes(grid(1).cluster().nodes())
