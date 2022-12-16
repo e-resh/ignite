@@ -27,6 +27,9 @@ public final class IgniteNodeAttributes {
     /** Node compound version. */
     public static final String ATTR_BUILD_VER = ATTR_PREFIX + ".build.ver";
 
+    /** Node compound full application version. */
+    public static final String ATTR_FULL_VER = ATTR_PREFIX + ".full.ver";
+
     /** Internal attribute name constant. */
     public static final String ATTR_BUILD_DATE = ATTR_PREFIX + ".build.date";
 
