@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.cache;
 
+import org.apache.ignite.binary.Compressor;
 import org.apache.ignite.cache.affinity.AffinityKeyMapper;
 import org.apache.ignite.internal.GridKernalContext;
 import org.jetbrains.annotations.Nullable;
@@ -50,6 +51,9 @@ public class CacheObjectContext implements CacheObjectValueContext {
     /** Boinary enabled flag. */
     private final boolean binaryEnabled;
 
+    /** */
+    private final Compressor compressor;
+
     /**
      * @param kernalCtx Kernal context.
      * @param dfltAffMapper Default affinity mapper.
@@ -62,6 +66,7 @@ public class CacheObjectContext implements CacheObjectValueContext {
     public CacheObjectContext(GridKernalContext kernalCtx,
         String cacheName,
         AffinityKeyMapper dfltAffMapper,
+        Compressor compressor,
         boolean customAffMapper,
         boolean cpyOnGet,
         boolean storeVal,
@@ -71,6 +76,7 @@ public class CacheObjectContext implements CacheObjectValueContext {
         this.cacheName = cacheName;
         this.dfltAffMapper = dfltAffMapper;
         this.customAffMapper = customAffMapper;
+        this.compressor = compressor;
         this.cpyOnGet = cpyOnGet;
         this.storeVal = storeVal;
         this.addDepInfo = addDepInfo;
@@ -122,6 +128,18 @@ public class CacheObjectContext implements CacheObjectValueContext {
     /** {@inheritDoc} */
     @Override public boolean binaryEnabled() {
         return binaryEnabled;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Compressor compressor() {
+        return compressor;
+    }
+
+    /**
+     * @return Binary object comression enabled flag.
+     */
+    public boolean compressEnabled() {
+        return compressor() != null;
     }
 
     /**

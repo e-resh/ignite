@@ -417,6 +417,9 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
     /** Events disabled. */
     private boolean evtsDisabled = DFLT_EVENTS_DISABLED;
 
+    /** Compression configuration. */
+    private CompressionConfiguration compressionCfg;
+
     /**
      * Flag indicating whether data must be encrypted.
      * If {@code true} data on the disk will be encrypted.
@@ -469,6 +472,7 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
         cacheLoaderFactory = cc.getCacheLoaderFactory();
         cacheMode = cc.getCacheMode();
         cacheWriterFactory = cc.getCacheWriterFactory();
+        compressionCfg = cc.getCompressionConfiguration();
         cpOnRead = cc.isCopyOnRead();
         dfltLockTimeout = cc.getDefaultLockTimeout();
         eagerTtl = cc.isEagerTtl();
@@ -2404,6 +2408,26 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
      */
     public CacheConfiguration<K, V> setEncryptionEnabled(boolean encryptionEnabled) {
         this.encryptionEnabled = encryptionEnabled;
+
+        return this;
+    }
+
+    /**
+     * Gets compression configuration.
+     *
+     * @return Compression configuration.
+     */
+    public CompressionConfiguration getCompressionConfiguration() {
+        return compressionCfg;
+    }
+
+    /**
+     * Sets compression configuration.
+     *
+     * @param compressionCfg Compression configuration.
+     */
+    public CacheConfiguration<K, V> setCompressionConfiguration(CompressionConfiguration compressionCfg) {
+        this.compressionCfg = compressionCfg;
 
         return this;
     }

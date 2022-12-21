@@ -2756,7 +2756,7 @@ public class BinaryMarshallerSelfTest extends AbstractBinaryArraysTest {
 
         BinaryObjectImpl po = marshal(simpleObject(), marsh);
 
-        CacheObjectContext coCtx = new CacheObjectContext(newContext(), null, null, false, false, true, false, false);
+        CacheObjectContext coCtx = new CacheObjectContext(newContext(), null, null, null, false, false, true, false, false);
 
         assert po.value(coCtx, false) == po.value(coCtx, false);
 

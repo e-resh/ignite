@@ -100,11 +100,11 @@ public class CompressionProcessor extends GridProcessorAdapter {
     public static int checkCompressionLevelBounds(int compressLevel, DiskPageCompression compression) {
         switch (compression) {
             case ZSTD:
-                checkCompressionLevelBounds(compressLevel, ZSTD_MIN_LEVEL, ZSTD_MAX_LEVEL);
+                checkCompressionLevelBounds(compressLevel, ZSTD_MIN_LEVEL, ZSTD_MAX_LEVEL, "ZSTD");
                 break;
 
             case LZ4:
-                checkCompressionLevelBounds(compressLevel, LZ4_MIN_LEVEL, LZ4_MAX_LEVEL);
+                checkCompressionLevelBounds(compressLevel, LZ4_MIN_LEVEL, LZ4_MAX_LEVEL, "LZ4");
                 break;
 
             default:
@@ -118,11 +118,12 @@ public class CompressionProcessor extends GridProcessorAdapter {
      * @param compressLevel Compression level.
      * @param min Min level.
      * @param max Max level.
+     * @param algorithmName Algorithm name.
      */
-    private static void checkCompressionLevelBounds(int compressLevel, int min, int max) {
+    private static void checkCompressionLevelBounds(int compressLevel, int min, int max, String algorithmName) {
         if (compressLevel < min || compressLevel > max) {
-            throw new IllegalArgumentException("Compression level for LZ4 must be between " + min +
-                " and " + max + ".");
+            throw new IllegalArgumentException("Compression level for " + algorithmName +
+                    " must be between " + min + " and " + max + ".");
         }
     }
 

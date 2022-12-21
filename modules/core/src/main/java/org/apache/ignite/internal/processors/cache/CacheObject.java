@@ -41,6 +41,9 @@ public interface CacheObject extends Message {
     /** */
     public static final byte TOMBSTONE = -1;
 
+    /** */
+    public static final byte TYPE_BINARY_COMPRESSED = -TYPE_BINARY;
+
     /**
      * @param ctx Context.
      * @param cpy If {@code true} need to copy value.
@@ -115,9 +118,20 @@ public interface CacheObject extends Message {
      * Prepares cache object for cache (e.g. copies user-provided object if needed).
      *
      * @param ctx Cache context.
+     * @param compress Cache object comperssion.
      * @return Instance to store in cache.
      */
-    public CacheObject prepareForCache(CacheObjectContext ctx);
+    public CacheObject prepareForCache(CacheObjectContext ctx, boolean compress) throws IgniteCheckedException;
+
+    /**
+     * Prepares cache object for cache (e.g. copies user-provided object if needed).
+     *
+     * @param ctx Cache context.
+     * @return Instance to store in cache.
+     */
+    default CacheObject prepareForCache(CacheObjectContext ctx) throws IgniteCheckedException {
+        return prepareForCache(ctx, ctx.compressEnabled());
+    }
 
     /**
      * @param ctx Context.

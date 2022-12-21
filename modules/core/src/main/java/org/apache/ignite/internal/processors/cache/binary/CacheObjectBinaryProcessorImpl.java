@@ -50,11 +50,13 @@ import org.apache.ignite.binary.BinaryObjectBuilder;
 import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.binary.BinaryType;
 import org.apache.ignite.binary.BinaryTypeConfiguration;
+import org.apache.ignite.binary.Compressor;
 import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.affinity.AffinityKeyMapper;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.BinaryConfiguration;
 import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.CompressionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.GridKernalContext;
@@ -422,11 +424,11 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
     }
 
     /** {@inheritDoc} */
-    @Nullable @Override public CacheObject prepareForCache(@Nullable CacheObject obj, GridCacheContext cctx) {
+    @Nullable @Override public CacheObject prepareForCache(@Nullable CacheObject obj, GridCacheContext cctx, boolean compress) throws IgniteCheckedException {
         if (obj == null)
             return null;
 
-        return obj.prepareForCache(cctx.cacheObjectContext());
+        return obj.prepareForCache(cctx.cacheObjectContext(), compress);
     }
 
     /** {@inheritDoc} */
@@ -1210,10 +1212,20 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
 
         ctx.resource().injectGeneric(dfltAffMapper);
 
+        String cacheName = ccfg.getName();
+
+        CompressionConfiguration compressionCfg = ccfg.getCompressionConfiguration();
+        Compressor compressor = null;
+        if (compressionCfg != null && compressionCfg.isEnabled()) {
+            compressor = compressionCfg.getCompressorFactory().create();
+            compressor.configure(ctx, cacheName, compressionCfg);
+        }
+
         return new CacheObjectContext(ctx,
-            ccfg.getName(),
+            cacheName,
             dfltAffMapper,
-            QueryUtils.isCustomAffinityMapper(ccfg.getAffinityMapper()),
+            compressor,
+            QueryUtils.isCustomAffinityMapper(cacheAffMapper),
             ccfg.isCopyOnRead(),
             storeVal,
             ctx.config().isPeerClassLoadingEnabled() && !isBinaryEnabled(ccfg),
@@ -1378,6 +1390,9 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
 
             case CacheObject.TYPE_REGULAR:
                 return new CacheObjectImpl(null, bytes);
+
+            case CacheObject.TYPE_BINARY_COMPRESSED:
+                return new BinaryObjectImpl(binaryContext(), ctx.compressor().decompress(bytes), 0);
         }
 
         throw new IllegalArgumentException("Invalid object type: " + type);
@@ -1395,6 +1410,9 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
 
             case CacheObject.TYPE_REGULAR:
                 return new KeyCacheObjectImpl(ctx.kernalContext().cacheObjects().unmarshal(ctx, bytes, null), bytes, -1);
+
+            case CacheObject.TYPE_BINARY_COMPRESSED:
+                return new BinaryObjectImpl(binaryContext(), ctx.compressor().decompress(bytes), 0);
         }
 
         throw new IllegalArgumentException("Invalid object type: " + type);

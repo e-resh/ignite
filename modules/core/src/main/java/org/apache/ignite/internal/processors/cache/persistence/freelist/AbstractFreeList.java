@@ -34,6 +34,7 @@ import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageInsertFragmen
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageInsertRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageRemoveRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageUpdateRecord;
+import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegion;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
 import org.apache.ignite.internal.processors.cache.persistence.Storable;
