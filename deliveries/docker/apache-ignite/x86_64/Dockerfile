@@ -44,5 +44,7 @@ RUN chmod 555 $IGNITE_HOME/run.sh
 # Entry point
 CMD $IGNITE_HOME/run.sh
 
+RUN chmod 555 $IGNITE_HOME/bin/*.sh
+
 # Container port exposure
 EXPOSE 11211 47100 47500 49112 10800 8080
