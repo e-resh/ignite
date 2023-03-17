@@ -29,10 +29,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BooleanSupplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.cache.CacheException;
 import org.apache.ignite.IgniteBinary;
 import org.apache.ignite.IgniteCheckedException;
@@ -47,6 +51,7 @@ import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.binary.BinaryType;
 import org.apache.ignite.binary.BinaryTypeConfiguration;
 import org.apache.ignite.binary.Compressor;
+import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.affinity.AffinityKeyMapper;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.BinaryConfiguration;
@@ -80,6 +85,7 @@ import org.apache.ignite.internal.binary.GridBinaryMarshaller;
 import org.apache.ignite.internal.binary.builder.BinaryObjectBuilderImpl;
 import org.apache.ignite.internal.binary.streams.BinaryInputStream;
 import org.apache.ignite.internal.binary.streams.BinaryOffheapInputStream;
+import org.apache.ignite.internal.managers.discovery.GridDiscoveryManager;
 import org.apache.ignite.internal.managers.systemview.walker.BinaryMetadataViewWalker;
 import org.apache.ignite.internal.processors.GridProcessorAdapter;
 import org.apache.ignite.internal.processors.cache.CacheDefaultBinaryAffinityKeyMapper;
@@ -88,6 +94,7 @@ import org.apache.ignite.internal.processors.cache.CacheObjectByteArrayImpl;
 import org.apache.ignite.internal.processors.cache.CacheObjectContext;
 import org.apache.ignite.internal.processors.cache.CacheObjectImpl;
 import org.apache.ignite.internal.processors.cache.CacheObjectValueContext;
+import org.apache.ignite.internal.processors.cache.DynamicCacheDescriptor;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheDefaultAffinityKeyMapper;
 import org.apache.ignite.internal.processors.cache.GridCacheUtils;
@@ -1713,7 +1720,45 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
 
     /** {@inheritDoc} */
     @Override public void onCacheGroupStop(GridCacheContext cctx, boolean destroy) {
-        // nothing
+        GridDiscoveryManager discoMgr = cctx.discovery();
+
+        if (destroy && U.isLocalNodeCoordinator(discoMgr)) { // Send event only from coordinator server node
+            CacheConfiguration<?, ?> config = cctx.config();
+
+            Collection<QueryEntity> queryEntities = config.getQueryEntities();
+
+            Set<String> types = queryEntities.stream()
+                    .flatMap(e -> Stream.of(e.getKeyType(), e.getValueType()))
+                    .filter(Objects::nonNull)
+                    .filter(type -> {
+                        int typeId = typeId(type);
+                        return metadataLocCache.containsKey(typeId);
+                    })
+                    .collect(Collectors.toSet());
+
+            for (DynamicCacheDescriptor cacheDesc : ctx.cache().cacheDescriptors().values()) {
+                if (cacheDesc.cacheId() == cctx.cacheId())
+                    continue;
+
+                if (!cacheDesc.cacheType().userCache())
+                    continue;
+
+                CacheConfiguration<?, ?> cfg = cacheDesc.cacheConfiguration();
+                for (QueryEntity e : cfg.getQueryEntities()) {
+                    if (e.getKeyType() != null) {
+                        types.remove(e.getKeyType());
+                    }
+                    if (e.getValueType() != null) {
+                        types.remove(e.getValueType());
+                    }
+                }
+            }
+
+            for (String type : types) {
+                int typeId = typeId(type);
+                removeType(typeId);
+            }
+        }
     }
 
     /** {@inheritDoc} */
