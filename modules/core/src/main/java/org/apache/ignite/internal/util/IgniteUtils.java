@@ -10002,6 +10002,24 @@ public abstract class IgniteUtils {
     }
 
     /**
+     * Resolves work directory for binary metadata store.
+     *
+     * @param ctx grid kernal context.
+     * @return Resolved binary meta work directory.
+     * @throws IgniteCheckedException If failed.
+     */
+    public static File resolveBinaryMetaWorkDirectory(GridKernalContext ctx) throws IgniteCheckedException {
+        final String nodeSubFolder = ctx.pdsFolderResolver().resolveFolders().folderName();
+
+        final File workParentDir = U.resolveWorkDirectory(
+                ctx.config().getWorkDirectory(),
+                DataStorageConfiguration.DFLT_BINARY_METADATA_PATH,
+                false
+        );
+        return new File(workParentDir, nodeSubFolder);
+    }
+
+    /**
      * Checks if the given directory exists and attempts to create one if not.
      *
      * @param dir Directory to check.

@@ -441,11 +441,11 @@ final class BinaryMetadataTransport {
      * @param pendingVer Pending version.
      * @param fut Future.
      */
-    private void initSyncFor(int typeId, int pendingVer, final MetadataUpdateResultFuture fut) {
+    private MetadataUpdateResultFuture initSyncFor(int typeId, int pendingVer, final MetadataUpdateResultFuture fut) {
         if (stopping) {
             fut.onDone(MetadataUpdateResult.createUpdateDisabledResult());
 
-            return;
+            return null;
         }
 
         SyncKey key = new SyncKey(typeId, pendingVer);
@@ -461,6 +461,7 @@ final class BinaryMetadataTransport {
         }
 
         fut.key(key);
+        return oldFut;
     }
 
     /**
@@ -954,13 +955,22 @@ final class BinaryMetadataTransport {
                     fut.onDone(MetadataUpdateResult.createFailureResult(msg.rejectionError()));
             }
             else {
-                if (fut != null)
-                    initSyncFor(typeId, REMOVED_VERSION, fut);
+                if (fut != null) {
+                    MetadataUpdateResultFuture prev = initSyncFor(typeId, REMOVED_VERSION, fut);
+                    if (prev != null)
+                        try {
+                            prev.get();
+                        } catch (IgniteCheckedException e) {
+                            // ignored
+                        }
+                }
 
-                metaLocCache.put(typeId, metaHld.createRemoving());
+                if (metaHld != null && !metaHld.removing()) {
+                    metaLocCache.put(typeId, metaHld.createRemoving());
 
-                if (isPersistenceEnabled)
-                    metadataFileStore.prepareMetadataRemove(typeId);
+                    if (isPersistenceEnabled)
+                        metadataFileStore.prepareMetadataRemove(typeId);
+                }
             }
         }
     }

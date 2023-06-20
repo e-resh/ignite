@@ -2622,6 +2622,15 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             ctx.query().onCacheStop(cacheName);
     }
 
+    private void prepareCacheGroupStop(int grpId) {
+        CacheGroupContext grp = cacheGrps.get(grpId);
+        if (grp != null) {
+            for (GridCacheContext ctx : grp.caches()) {
+                ctx.cacheObjects().onCacheGroupDestroy(ctx);
+            }
+        }
+    }
+
     /**
      * @param startTopVer Cache start version.
      * @param err Cache start error if any.
@@ -2821,6 +2830,9 @@ public class GridCacheProcessor extends GridProcessorAdapter {
                             sharedCtx.database().checkpointReadLock();
 
                             try {
+                                for (Integer grp : grpIdToDestroy)
+                                    prepareCacheGroupStop(grp);
+
                                 boolean callDestroy = action.request().destroy();
 
                                 // If all caches in group will be destroyed it is not necessary to clear a single cache
