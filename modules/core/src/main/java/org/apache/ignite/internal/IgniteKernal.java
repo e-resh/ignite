@@ -265,10 +265,12 @@ import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_SHUTDOWN_POLI
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_SPI_CLASS;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_TX_CONFIG;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_USER_NAME;
+import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_FULL_VER;
 import static org.apache.ignite.internal.IgniteVersionUtils.BUILD_TSTAMP_STR;
 import static org.apache.ignite.internal.IgniteVersionUtils.COPYRIGHT;
 import static org.apache.ignite.internal.IgniteVersionUtils.VER;
 import static org.apache.ignite.internal.IgniteVersionUtils.VER_STR;
+import static org.apache.ignite.internal.IgniteVersionUtils.VER_STR_FULL;
 import static org.apache.ignite.lifecycle.LifecycleEventType.AFTER_NODE_START;
 import static org.apache.ignite.lifecycle.LifecycleEventType.BEFORE_NODE_START;
 import static org.apache.ignite.mxbean.IgniteMXBean.ACTIVE_DESC;
@@ -1612,6 +1614,7 @@ public class IgniteKernal implements IgniteEx, Externalizable {
         // Stick in some system level attributes
         add(ATTR_JIT_NAME, U.getCompilerMx() == null ? "" : U.getCompilerMx().getName());
         add(ATTR_BUILD_VER, VER_STR);
+        add(ATTR_FULL_VER, VER_STR_FULL);
         add(ATTR_BUILD_DATE, BUILD_TSTAMP_STR);
         add(ATTR_MARSHALLER, cfg.getMarshaller().getClass().getName());
         add(ATTR_MARSHALLER_USE_DFLT_SUID,

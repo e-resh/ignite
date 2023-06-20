@@ -22,14 +22,19 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.Objects;
+
 import org.apache.ignite.lang.IgniteProductVersion;
 
 /**
  * Ignite version utils.
  */
 public class IgniteVersionUtils {
-    /** Ignite version in String form. */
+    /** Ignite base version in proprties. */
     public static final String VER_STR;
+
+    /** Ignite full version in properties. */
+    public static final String VER_STR_FULL;
 
     /** Ignite version. */
     public static final IgniteProductVersion VER;
@@ -62,10 +67,9 @@ public class IgniteVersionUtils {
      * Static initializer.
      */
     static {
-        VER_STR = IgniteProperties.get("ignite.version")
-            .replace(".a", "-a") // Backward compatibility fix.
-            .replace(".b", "-b")
-            .replace(".final", "-final");
+        String igniteVersion = IgniteProperties.get("ignite.version");
+        VER_STR = capabalityNormalizeVersion(versionWithoutTail(igniteVersion));
+        VER_STR_FULL = capabalityNormalizeVersion(igniteVersion);
 
         BUILD_TSTAMP_FROM_PROPERTY = IgniteProperties.get("ignite.build");
 
@@ -89,7 +93,7 @@ public class IgniteVersionUtils {
 
         String rev = REV_HASH_STR.length() > 8 ? REV_HASH_STR.substring(0, 8) : REV_HASH_STR;
 
-        ACK_VER_STR = VER_STR + '#' + BUILD_TSTAMP_STR + "-sha1:" + rev;
+        ACK_VER_STR = VER_STR_FULL + '#' + BUILD_TSTAMP_STR + "-sha1:" + rev;
 
         VER = IgniteProductVersion.fromString(VER_STR + '-' + BUILD_TSTAMP + '-' + REV_HASH_STR);
     }
@@ -102,6 +106,31 @@ public class IgniteVersionUtils {
      */
     public static String formatBuildTimeStamp(long ts) {
         return BUILD_TSTAMP_DATE_FORMATTER.format(Instant.ofEpochMilli(ts));
+    }
+
+    /**
+     * Cuts tail part of version from ignite version string
+     *
+     * @param igniteVersion - version from property
+     * @return canonical versiob string
+     */
+    private static String versionWithoutTail(String igniteVersion) {
+        String[] versions = igniteVersion.split("\\.");
+        if (versions.length < 3)
+            throw new IllegalStateException("Version parts less than 3");
+        return String.join(".", versions[0], versions[1], versions[2]);
+    }
+
+    /**
+     *  Backward compatibility fix.
+     * @param version - text version
+     * @return normalized text version
+     */
+    private static String capabalityNormalizeVersion(String version) {
+        return Objects.requireNonNull(version)
+                .replace(".a", "-a")
+                .replace(".b", "-b")
+                .replace(".final", "-final");
     }
 
     /**
