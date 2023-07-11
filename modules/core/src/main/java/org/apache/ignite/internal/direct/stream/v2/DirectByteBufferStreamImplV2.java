@@ -19,6 +19,7 @@ package org.apache.ignite.internal.direct.stream.v2;
 
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -589,7 +590,7 @@ public class DirectByteBufferStreamImplV2 implements DirectByteBufferStream {
     @Override public void writeString(String val) {
         if (val != null) {
             if (curStrBackingArr == null)
-                curStrBackingArr = val.getBytes();
+                curStrBackingArr = val.getBytes(StandardCharsets.UTF_8);
 
             writeByteArray(curStrBackingArr);
 
@@ -1079,7 +1080,7 @@ public class DirectByteBufferStreamImplV2 implements DirectByteBufferStream {
     @Override public String readString() {
         byte[] arr = readByteArray();
 
-        return arr != null ? new String(arr) : null;
+        return arr != null ? new String(arr, StandardCharsets.UTF_8) : null;
     }
 
     /** {@inheritDoc} */

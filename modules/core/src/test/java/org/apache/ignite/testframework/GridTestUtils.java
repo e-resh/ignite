@@ -154,6 +154,8 @@ public final class GridTestUtils {
     /** */
     private static final String ALPHABETH = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890_";
 
+    static final String CYRILLIC_ALPHABETH = "АаБбВвГгДдЕеЁёЖжЗзИиЙйКкЛлМмНнОоПпРрСсТтУуФфХхЦцЧчШшЩщЪъЫыЬьЭэЮюЯя";
+
     /**
      * Hook object intervenes to discovery message handling
      * and thus allows to make assertions or other actions like skipping certain discovery messages.
@@ -2418,6 +2420,24 @@ public final class GridTestUtils {
 
         for (int i = 0; i < len; i++)
             b.append(ALPHABETH.charAt(rnd.nextInt(ALPHABETH.length())));
+
+        return b.toString();
+    }
+
+    /**
+     * Generate random cyrrilic alphabetical string.
+     *
+     * @param rnd Random object.
+     * @param maxLen Maximal length of string
+     * @return Random string object.
+     */
+    public static String randomCyrillicString(Random rnd, int maxLen) {
+        int len = rnd.nextInt(maxLen);
+
+        StringBuilder b = new StringBuilder(len);
+
+        for (int i = 0; i < len; i++)
+            b.append(CYRILLIC_ALPHABETH.charAt(rnd.nextInt(CYRILLIC_ALPHABETH.length())));
 
         return b.toString();
     }
