@@ -26,7 +26,9 @@ import java.util.concurrent.TimeUnit;
 import javax.cache.CacheException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.query.QueryCancelledException;
+import org.apache.ignite.cache.query.QueryClientTimeoutException;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -98,22 +100,22 @@ public class IgniteCacheDistributedQueryDefaultTimeoutSelfTest extends GridCommo
      * Check timeout for distributed query.
      * Steps:
      * - run long distributed query with timeout 500 ms;
-     * - the query must be failed with QueryCancelledException.
+     * - the query must be failed with QueryClientTimeoutException.
      */
     @Test
     public void testRemoteQueryExecutionTimeout() throws Exception {
-        testQueryCancel(QRY_1, 500, TimeUnit.MILLISECONDS, true);
+        testQueryCancel(QRY_1, 500, TimeUnit.MILLISECONDS, true, QueryClientTimeoutException.class);
     }
 
     /**
      * Check timeout for distributed query with merge table.
      * Steps:
      * - run long distributed query with timeout 500 ms;
-     * - the query must be failed with QueryCancelledException.
+     * - the query must be failed with QueryClientTimeoutException.
      */
     @Test
     public void testRemoteQueryWithMergeTableTimeout() throws Exception {
-        testQueryCancel(QRY_2, 500, TimeUnit.MILLISECONDS, true);
+        testQueryCancel(QRY_2, 500, TimeUnit.MILLISECONDS, true, QueryClientTimeoutException.class);
     }
 
     /**
@@ -125,7 +127,7 @@ public class IgniteCacheDistributedQueryDefaultTimeoutSelfTest extends GridCommo
      */
     @Test
     public void testRemoteQueryExecutionCancel0() throws Exception {
-        testQueryCancel(QRY_1, 1, TimeUnit.MILLISECONDS, false);
+        testQueryCancel(QRY_1, 1, TimeUnit.MILLISECONDS, false, QueryCancelledException.class);
     }
 
     /** */
@@ -133,7 +135,9 @@ public class IgniteCacheDistributedQueryDefaultTimeoutSelfTest extends GridCommo
         String sql,
         int timeout,
         TimeUnit timeUnit,
-        boolean useTimeout) throws Exception {
+        boolean useTimeout,
+        Class<? extends IgniteCheckedException> exceptionClass
+    ) throws Exception {
         try (Ignite client = startGrid("client")) {
             IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
 
@@ -167,7 +171,7 @@ public class IgniteCacheDistributedQueryDefaultTimeoutSelfTest extends GridCommo
             catch (CacheException ex) {
                 error("Got expected exception", ex);
 
-                assertNotNull("Must throw correct exception", X.cause(ex, QueryCancelledException.class));
+                assertNotNull("Must throw correct exception", X.cause(ex, exceptionClass));
             }
 
             // Give some time to clean up.

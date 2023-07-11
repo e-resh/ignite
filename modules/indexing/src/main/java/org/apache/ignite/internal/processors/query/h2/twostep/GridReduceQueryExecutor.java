@@ -44,6 +44,7 @@ import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.query.Query;
 import org.apache.ignite.cache.query.QueryCancelledException;
+import org.apache.ignite.cache.query.QueryClientTimeoutException;
 import org.apache.ignite.cache.query.QueryRetryException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.events.DiscoveryEvent;
@@ -463,7 +464,7 @@ public class GridReduceQueryExecutor {
                     boolean retry = false;
 
                     if (send(nodes, req, spec, false)) {
-                        awaitAllReplies(r, nodes, cancel);
+                        awaitAllReplies(r, nodes, cancel, timeoutMillis);
 
                         if (r.hasErrorOrRetry()) {
                             CacheException err = r.exception();
@@ -1064,11 +1065,15 @@ public class GridReduceQueryExecutor {
      * @param r Query run.
      * @param nodes Nodes to check periodically if they alive.
      * @param cancel Query cancel.
+     * @param timeoutMillis Timeout in milliseconds.
      * @throws IgniteInterruptedCheckedException If interrupted.
      * @throws QueryCancelledException On query cancel.
      */
-    private void awaitAllReplies(ReduceQueryRun r, Collection<ClusterNode> nodes, GridQueryCancel cancel)
-        throws IgniteInterruptedCheckedException, QueryCancelledException {
+    private void awaitAllReplies(ReduceQueryRun r, Collection<ClusterNode> nodes, GridQueryCancel cancel, int timeoutMillis)
+        throws IgniteInterruptedCheckedException, QueryCancelledException, QueryClientTimeoutException {
+
+        long start = U.currentTimeMillis();
+
         while (!r.tryMapToSources(500, TimeUnit.MILLISECONDS)) {
 
             cancel.checkCancelled();
@@ -1081,6 +1086,11 @@ public class GridReduceQueryExecutor {
 
                     return;
                 }
+            }
+
+            if (timeoutMillis > 0 && (U.currentTimeMillis() - start) > timeoutMillis) {
+                cancel.cancel();
+                throw new QueryClientTimeoutException(timeoutMillis);
             }
         }
     }
