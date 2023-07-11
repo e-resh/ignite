@@ -21,17 +21,18 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.configuration.PageReplacementMode;
 import org.apache.ignite.internal.pagemem.FullPageId;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.processors.cache.persistence.freelist.io.PagesListMetaIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusMetaIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionCountersIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionMetaIO;
 
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.META_PAGE_ID;
 import static org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryImpl.INVALID_REL_PTR;
-import static org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryImpl.PAGE_OVERHEAD;
 
 /**
  * Random-LRU page replacement policy implementation.
@@ -40,7 +41,8 @@ import static org.apache.ignite.internal.processors.cache.persistence.pagemem.Pa
  */
 public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
     /** Number of random pages that will be picked for eviction. */
-    public static final int RANDOM_PAGES_EVICT_NUM = 5;
+    private final int randomPageEvictNum
+            = IgniteSystemProperties.getInteger(IgniteSystemProperties.IGNITE_RANDOM_PAGES_EVICT_NUM, 30);
 
     /** */
     private static final double FULL_SCAN_THRESHOLD = 0.4;
@@ -72,12 +74,23 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
         while (true) {
             long cleanAddr = INVALID_REL_PTR;
             long cleanTs = Long.MAX_VALUE;
+
+            long bPlusLeafAddr = INVALID_REL_PTR;
+            long bPlusLeafTs = Long.MAX_VALUE;
+
+            long bPlusInnerAddr = INVALID_REL_PTR;
+            long bPlusInnerTs = Long.MAX_VALUE;
+
+            long listNodeAddr = INVALID_REL_PTR;
+            long listNodeTs = Long.MAX_VALUE;
+
             long dirtyAddr = INVALID_REL_PTR;
             long dirtyTs = Long.MAX_VALUE;
+
             long metaAddr = INVALID_REL_PTR;
             long metaTs = Long.MAX_VALUE;
 
-            for (int i = 0; i < RANDOM_PAGES_EVICT_NUM; i++) {
+            for (int i = 0; i < randomPageEvictNum; i++) {
                 ++iterations;
 
                 if (iterations > pool.pages() * FULL_SCAN_THRESHOLD)
@@ -111,7 +124,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
                 boolean skip = ignored != null && ignored.contains(rndAddr);
 
-                final boolean dirty = PageHeader.dirty(absPageAddr);
+                final boolean dirty = PageMemoryImpl.isDirty(absPageAddr);
 
                 CheckpointPages checkpointPages = seg.checkpointPages();
 
@@ -126,12 +139,30 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
                 final long pageTs = PageHeader.readTimestamp(absPageAddr);
 
-                final boolean storMeta = isStoreMetadataPage(absPageAddr);
+                PageIO io = PageMemoryImpl.getPageIOByAddr(absPageAddr);
 
-                if (pageTs < cleanTs && !dirty && !storMeta) {
+                final boolean bPlusLeafIO = PageMemoryImpl.isBPlusLeafIOPage(io);
+                final boolean bPlusInnerIO = PageMemoryImpl.isBPlusInnerIOPage(io);
+                final boolean listNodeIO = PageMemoryImpl.isListNodeIOPage(io);
+
+                final boolean storMeta = isStoreMetadataPage(io);
+
+                if (pageTs < cleanTs && !bPlusLeafIO && !bPlusInnerIO && !listNodeIO && !dirty && !storMeta) {
                     cleanAddr = rndAddr;
 
                     cleanTs = pageTs;
+                }
+                else if (pageTs < bPlusLeafTs && bPlusLeafIO && !dirty && !storMeta) {
+                    bPlusLeafAddr = rndAddr;
+                    bPlusLeafTs = pageTs;
+                }
+                else if (pageTs < bPlusInnerTs && bPlusInnerIO && !dirty && !storMeta) {
+                    bPlusInnerAddr = rndAddr;
+                    bPlusInnerTs = pageTs;
+                }
+                else if (pageTs < listNodeTs && listNodeIO && !dirty && !storMeta) {
+                    listNodeAddr = rndAddr;
+                    listNodeTs = pageTs;
                 }
                 else if (pageTs < dirtyTs && dirty && !storMeta) {
                     dirtyAddr = rndAddr;
@@ -146,6 +177,12 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
                 if (cleanAddr != INVALID_REL_PTR)
                     relRmvAddr = cleanAddr;
+                else if (bPlusLeafAddr != INVALID_REL_PTR)
+                    relRmvAddr = bPlusLeafAddr;
+                else if (bPlusInnerAddr != INVALID_REL_PTR)
+                    relRmvAddr = bPlusInnerAddr;
+                else if (listNodeAddr != INVALID_REL_PTR)
+                    relRmvAddr = listNodeAddr;
                 else if (dirtyAddr != INVALID_REL_PTR)
                     relRmvAddr = dirtyAddr;
                 else
@@ -178,25 +215,14 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
     }
 
     /**
-     * @param absPageAddr Absolute page address
+     * @param io page
      * @return {@code True} if page is related to partition metadata, which is loaded in saveStoreMetadata().
      */
-    private static boolean isStoreMetadataPage(long absPageAddr) {
-        try {
-            long dataAddr = absPageAddr + PAGE_OVERHEAD;
-
-            int type = PageIO.getType(dataAddr);
-            int ver = PageIO.getVersion(dataAddr);
-
-            PageIO io = PageIO.getPageIO(type, ver);
-
-            return io instanceof PagePartitionMetaIO
+    private boolean isStoreMetadataPage(PageIO io) {
+        return io instanceof PagePartitionMetaIO
                 || io instanceof PagesListMetaIO
-                || io instanceof PagePartitionCountersIO;
-        }
-        catch (IgniteCheckedException ignored) {
-            return false;
-        }
+                || io instanceof PagePartitionCountersIO
+                || io instanceof BPlusMetaIO;
     }
 
     /**

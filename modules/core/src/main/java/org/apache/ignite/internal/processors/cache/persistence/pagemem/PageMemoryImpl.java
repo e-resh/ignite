@@ -70,7 +70,10 @@ import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetrics
 import org.apache.ignite.internal.processors.cache.persistence.PageStoreWriter;
 import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.processors.cache.persistence.checkpoint.CheckpointProgress;
+import org.apache.ignite.internal.processors.cache.persistence.freelist.io.PagesListNodeIO;
 import org.apache.ignite.internal.processors.cache.persistence.partstate.GroupPartitionId;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusInnerIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusLeafIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.TrackingPageIO;
@@ -185,6 +188,9 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** Use new implementation of loaded pages table:  'Robin Hood hashing: backward shift deletion'. */
     private final boolean useBackwardShiftMap =
         IgniteSystemProperties.getBoolean(IGNITE_LOADED_PAGES_BACKWARD_SHIFT_MAP, DFLT_LOADED_PAGES_BACKWARD_SHIFT_MAP);
+
+    private final boolean disableEvictIdxInnerPages
+            = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_EVICT_IDX_INNER_PAGES_DISABLED, false);
 
     /** Page replacement policy factory. */
     private final PageReplacementPolicyFactory pageReplacementPolicyFactory;
@@ -1819,8 +1825,50 @@ public class PageMemoryImpl implements PageMemoryEx {
      * @param absPtr Absolute pointer.
      * @return {@code True} if page is dirty.
      */
-    boolean isDirty(long absPtr) {
+    static boolean isDirty(long absPtr) {
         return PageHeader.dirty(absPtr);
+    }
+
+    /**
+     * @param absPageAddr Absolute page address
+     * @return page.
+     */
+    static PageIO getPageIOByAddr(long absPageAddr) {
+        try {
+            long dataAddr = absPageAddr + PAGE_OVERHEAD;
+
+            int type = PageIO.getType(dataAddr);
+            int ver = PageIO.getVersion(dataAddr);
+
+            return PageIO.getPageIO(type, ver);
+        }
+        catch (IgniteCheckedException ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * @param io page
+     * @return {@code True} if page is related to BPlus leaf index tree.
+     */
+    static boolean isBPlusLeafIOPage(PageIO io) {
+        return io instanceof BPlusLeafIO;
+    }
+
+    /**
+     * @param io page
+     * @return {@code True} if page is related to BPlus inner index tree.
+     */
+    static boolean isBPlusInnerIOPage(PageIO io) {
+        return io instanceof BPlusInnerIO;
+    }
+
+    /**
+     * @param io page
+     * @return {@code True} if page is related to list node.
+     */
+    static boolean isListNodeIOPage(PageIO io) {
+        return io instanceof PagesListNodeIO;
     }
 
     /**
@@ -2184,6 +2232,12 @@ public class PageMemoryImpl implements PageMemoryEx {
 
             if (PageHeader.isAcquired(absPtr))
                 return false;
+
+            if (disableEvictIdxInnerPages) {
+                PageIO io = getPageIOByAddr(absPtr);
+                if (isBPlusInnerIOPage(io) || isListNodeIOPage(io))
+                    return false;
+            }
 
             clearRowCache(fullPageId, absPtr);
 
