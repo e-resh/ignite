@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
@@ -163,6 +164,9 @@ public class GridH2Table extends TableBase {
 
     /** Table statistics. */
     private volatile TableStatistics tblStats;
+
+    /** Table statistics recalculate pending flag*/
+    private volatile AtomicBoolean tblStatsPending = new AtomicBoolean();
 
     /** Logger. */
     @GridToStringExclude
@@ -1010,7 +1014,8 @@ public class GridH2Table extends TableBase {
         if (!localQuery(QueryContext.threadLocal()))
             return 10_000; // Fallback to the previous behaviour.
 
-        refreshStatsIfNeeded();
+        if (!tblStatsPending.get())
+            refreshStatsIfNeeded();
 
         return tblStats.localRowCount();
     }
@@ -1036,23 +1041,38 @@ public class GridH2Table extends TableBase {
         long curTotalRowCnt = size.sum();
 
         // Update stats if total table size changed significantly since the last stats update.
-        if (needRefreshStats(statsTotalRowCnt, curTotalRowCnt) && cacheInfo.affinityNode()) {
-            CacheConfiguration ccfg = cacheContext().config();
+        if (needRefreshStats(statsTotalRowCnt, curTotalRowCnt) && cacheInfo.affinityNode() &&
+                tblStatsPending.compareAndSet(false, true)
+        ) {
+            try {
+                if (log.isInfoEnabled())
+                    log.info("Started calculation statistics for table [cacheName=" + cacheInfo.name() +
+                            ", schemaName=" + getSchema().getName() + ", tableName=" + getName() +
+                            "], statistics row count: " + statsTotalRowCnt + ", current row count: " + curTotalRowCnt);
 
-            int backups = ccfg.getCacheMode() == CacheMode.REPLICATED ? 0 : cacheContext().config().getBackups();
+                CacheConfiguration ccfg = cacheContext().config();
 
-            // After restart of node with persistence and before affinity exchange - PRIMARY partitions are empty.
-            // Try to predict local row count take into account ideal distribution.
-            long localOwnerRowCnt = cacheSize(CachePeekMode.PRIMARY, CachePeekMode.BACKUP) / (backups + 1);
+                int backups = ccfg.getCacheMode() == CacheMode.REPLICATED ? 0 : cacheContext().config().getBackups();
 
-            int owners = cacheContext().discovery().cacheNodes(cacheContext().name(), NONE).size();
+                // After restart of node with persistence and before affinity exchange - PRIMARY partitions are empty.
+                // Try to predict local row count take into account ideal distribution.
+                long localOwnerRowCnt = cacheSize(CachePeekMode.PRIMARY, CachePeekMode.BACKUP) / (backups + 1);
 
-            long totalRowCnt = owners * localOwnerRowCnt;
+                int owners = cacheContext().discovery().cacheNodes(cacheContext().name(), NONE).size();
 
-            size.reset();
-            size.add(totalRowCnt);
+                long totalRowCnt = owners * localOwnerRowCnt;
 
-            tblStats = new TableStatistics(totalRowCnt, localOwnerRowCnt);
+                size.reset();
+                size.add(totalRowCnt);
+
+                tblStats = new TableStatistics(totalRowCnt, localOwnerRowCnt);
+            } finally {
+                tblStatsPending.set(false);
+            }
+            if (log.isInfoEnabled())
+                log.info("Finished calculation statistics for table [cacheName=" + cacheInfo.name() +
+                        ", schemaName=" + getSchema().getName() + ", tableName=" + getName() + "]");
+
         }
     }
 
