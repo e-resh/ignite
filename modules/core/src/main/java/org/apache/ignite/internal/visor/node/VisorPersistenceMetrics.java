@@ -182,43 +182,6 @@ public class VisorPersistenceMetrics extends VisorDataTransferObject {
         storageSize = mreg.<LongMetric>findMetric("StorageSize").value();
         sparseStorageSize = mreg.<LongMetric>findMetric("SparseStorageSize").value();
 
-
-/*        walLoggingRate = m.getWalLoggingRate();
-        walWritingRate = m.getWalWritingRate();
-        walArchiveSegments = m.getWalArchiveSegments();
-        walFsyncTimeAvg = m.getWalFsyncTimeAverage();
-        walBufPollSpinRate = m.getWalBuffPollSpinsRate();
-        walSz = m.getWalTotalSize();
-        walLastRollOverTm = m.getWalLastRollOverTime();
-
-        cpTotalTm = m.getCheckpointTotalTime();
-
-        lastCpDuration = m.getLastCheckpointDuration();
-        lastCpStart = m.getLastCheckpointStarted();
-        lastCpLockWaitDuration = m.getLastCheckpointLockWaitDuration();
-        lastCpMmarkDuration = m.getLastCheckpointMarkDuration();
-        lastCpPagesWriteDuration = m.getLastCheckpointPagesWriteDuration();
-        lastCpFsyncDuration = m.getLastCheckpointFsyncDuration();
-        lastCpTotalPages = m.getLastCheckpointTotalPagesNumber();
-        lastCpDataPages = m.getLastCheckpointDataPagesNumber();
-        lastCpCowPages = m.getLastCheckpointCopiedOnWritePagesNumber();
-
-        dirtyPages = m.getDirtyPages();
-        pagesRead = m.getPagesRead();
-        pagesWritten = m.getPagesWritten();
-        pagesReplaced = m.getPagesReplaced();
-
-        offHeapSz = m.getOffHeapSize();
-        offheapUsedSz = m.getOffheapUsedSize();
-
-        usedCpBufPages = m.getUsedCheckpointBufferPages();
-        usedCpBufSz = m.getUsedCheckpointBufferSize();
-        cpBufSz = m.getCheckpointBufferSize();
-
-        totalSz = m.getTotalAllocatedSize();
-
-        storageSize = m.getStorageSize();
-        sparseStorageSize = m.getSparseStorageSize();*/
     }
 
     /**
