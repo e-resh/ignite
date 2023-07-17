@@ -94,6 +94,12 @@ public class VisorNodeDataCollectorTaskResult extends VisorDataTransferObject {
     /** Whether pending exchange future exists from nodes. */
     private Map<UUID, Boolean> pendingExchanges = new HashMap<>();
 
+    /** All persistence metrics collected from nodes. */
+    private Map<UUID, VisorPersistenceMetrics> persistenceMetrics = new HashMap<>();
+
+    /** Exceptions caught during collecting persistence metrics from nodes. */
+    private Map<UUID, VisorExceptionWrapper> persistenceMetricsEx = new HashMap<>();
+
     /** Rebalance state on nodes. */
     private Map<UUID, Double> rebalance = new HashMap<>();
 
@@ -124,6 +130,8 @@ public class VisorNodeDataCollectorTaskResult extends VisorDataTransferObject {
             igfssEx.isEmpty() &&
             readyTopVers.isEmpty() &&
             pendingExchanges.isEmpty() &&
+            persistenceMetrics.isEmpty() &&
+            persistenceMetricsEx.isEmpty() &&
             rebalance.isEmpty();
     }
 
@@ -254,6 +262,20 @@ public class VisorNodeDataCollectorTaskResult extends VisorDataTransferObject {
     }
 
     /**
+     * All persistence metrics collected from nodes.
+     */
+    public Map<UUID, VisorPersistenceMetrics> getPersistenceMetrics() {
+        return persistenceMetrics;
+    }
+
+    /**
+     * @return Exceptions caught during collecting persistence metrics from nodes.
+     */
+    public Map<UUID, VisorExceptionWrapper> getPersistenceMetricsEx() {
+        return persistenceMetricsEx;
+    }
+
+    /**
      * @return Rebalance on nodes.
      */
     public Map<UUID, Double> getRebalance() {
@@ -290,6 +312,8 @@ public class VisorNodeDataCollectorTaskResult extends VisorDataTransferObject {
         igfssEx.putAll(res.getIgfssEx());
         readyTopVers.putAll(res.getReadyAffinityVersions());
         pendingExchanges.putAll(res.getPendingExchanges());
+        persistenceMetrics.putAll(res.getPersistenceMetrics());
+        persistenceMetricsEx.putAll(res.getPersistenceMetricsEx());
         rebalance.putAll(res.getRebalance());
     }
 
@@ -312,6 +336,8 @@ public class VisorNodeDataCollectorTaskResult extends VisorDataTransferObject {
         U.writeMap(out, igfssEx);
         U.writeMap(out, readyTopVers);
         U.writeMap(out, pendingExchanges);
+        U.writeMap(out, persistenceMetrics);
+        U.writeMap(out, persistenceMetricsEx);
         U.writeMap(out, rebalance);
     }
 
@@ -334,6 +360,8 @@ public class VisorNodeDataCollectorTaskResult extends VisorDataTransferObject {
         igfssEx = U.readMap(in);
         readyTopVers = U.readMap(in);
         pendingExchanges = U.readMap(in);
+        persistenceMetrics = U.readMap(in);
+        persistenceMetricsEx = U.readMap(in);
 
         if (protoVer > V1)
             rebalance = U.readMap(in);

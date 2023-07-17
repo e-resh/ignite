@@ -236,6 +236,20 @@ public class VisorNodeDataCollectorJob extends VisorJob<VisorNodeDataCollectorTa
         }
     }
 
+    /**
+     * Collect persistence metrics.
+     *
+     * @param res Job result.
+     */
+    protected void persistenceMetrics(VisorNodeDataCollectorJobResult res) {
+        try {
+            res.setPersistenceMetrics(new VisorPersistenceMetrics(ignite.context().metric()));
+        }
+        catch (Exception e) {
+            res.setPersistenceMetricsEx(new VisorExceptionWrapper(e));
+        }
+    }
+
     /** {@inheritDoc} */
     @Override protected VisorNodeDataCollectorJobResult run(VisorNodeDataCollectorTaskArg arg) {
         return run(new VisorNodeDataCollectorJobResult(), arg);
@@ -275,7 +289,12 @@ public class VisorNodeDataCollectorJob extends VisorJob<VisorNodeDataCollectorTa
             caches(res, arg);
 
         if (debug)
-            log(ignite.log(), "Collected caches", getClass(), start0);
+            start0 = log(ignite.log(), "Collected caches", getClass(), start0);
+
+        persistenceMetrics(res);
+
+        if (debug)
+            log(ignite.log(), "Collected persistence metrics", getClass(), start0);
 
         res.setErrorCount(ignite.context().exceptionRegistry().errorCount());
 
