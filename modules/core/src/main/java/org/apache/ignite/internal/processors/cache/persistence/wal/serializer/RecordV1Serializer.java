@@ -49,6 +49,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiPredicate;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_PDS_SKIP_CRC;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_PDS_SKIP_FAILED_CRC;
 import static org.apache.ignite.internal.pagemem.wal.record.WALRecord.RecordType.SWITCH_SEGMENT_RECORD;
 
 /**
@@ -77,6 +78,9 @@ public class RecordV1Serializer implements RecordSerializer {
 
     /** Skip CRC calculation/check flag */
     public static boolean skipCrc = IgniteSystemProperties.getBoolean(IGNITE_PDS_SKIP_CRC, false);
+
+    /** Skip failed CRC. */
+    public static boolean skipFailedCrc = IgniteSystemProperties.getBoolean(IGNITE_PDS_SKIP_FAILED_CRC, false);
 
     /** V1 data serializer. */
     private final RecordDataV1Serializer dataSerializer;
@@ -385,7 +389,8 @@ public class RecordV1Serializer implements RecordSerializer {
         }
         catch (Exception e) {
 
-            if (e instanceof IgniteDataIntegrityViolationException && res != null && res.type() == null) {
+            if (skipFailedCrc && e instanceof IgniteDataIntegrityViolationException 
+                    && res != null && res.type() == null) {
                 return res;
             }
 
