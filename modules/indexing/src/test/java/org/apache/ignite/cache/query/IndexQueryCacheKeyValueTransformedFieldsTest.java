@@ -20,6 +20,7 @@ package org.apache.ignite.cache.query;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.processors.cache.CacheObjectValueContext;
 import org.apache.ignite.internal.processors.cache.transform.TestCacheObjectTransformerManagerAdapter;
 import org.apache.ignite.internal.processors.cache.transform.TestCacheObjectTransformerPluginProvider;
 
@@ -38,7 +39,7 @@ public class IndexQueryCacheKeyValueTransformedFieldsTest extends IndexQueryCach
      */
     protected static final class RandomShiftCacheObjectTransformer extends TestCacheObjectTransformerManagerAdapter {
         /** {@inheritDoc} */
-        @Override public ByteBuffer transform(ByteBuffer original) {
+        @Override public ByteBuffer transform(CacheObjectValueContext ctx, ByteBuffer original) {
             ByteBuffer transformed = ByteBuffer.wrap(new byte[original.remaining() + 5]);
 
             int shift = ThreadLocalRandom.current().nextInt();
@@ -55,7 +56,7 @@ public class IndexQueryCacheKeyValueTransformedFieldsTest extends IndexQueryCach
         }
 
         /** {@inheritDoc} */
-        @Override public ByteBuffer restore(ByteBuffer transformed) {
+        @Override public ByteBuffer restore(CacheObjectValueContext ctx, ByteBuffer transformed) {
             ByteBuffer restored = ByteBuffer.wrap(new byte[transformed.remaining() - 4]);
 
             int shift = transformed.getInt();
