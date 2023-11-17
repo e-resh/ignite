@@ -473,7 +473,7 @@ public class ValidationOnNodeJoinUtils {
 
         Collection<QueryEntity> ents = cc.getQueryEntities();
         CacheKeyConfiguration[] cacheKeyCfgs = cc.getKeyConfiguration();
-        if (ents != null && !ents.isEmpty() && cacheKeyCfgs != null) {
+        if (!ctx.clientNode() && ents != null && !ents.isEmpty() && cacheKeyCfgs != null) {
             for (CacheKeyConfiguration cacheKeyCfg : cacheKeyCfgs) {
                 String type = cacheKeyCfg.getTypeName();
                 String affKey = cacheKeyCfg.getAffinityKeyFieldName();
